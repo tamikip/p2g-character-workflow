@@ -3,38 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Character Workflow Agent - Phase 1</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <title>Character Workflow Agent</title>
   </head>
   <body>
-    <main class="page">
-      <section class="card">
-        <h1>Character Workflow Agent</h1>
-        <p class="subtitle">
-          Phase 1 Prototype: upload one character image and generate cutout + 3 expressions + 2 CG outputs.
-        </p>
-
-        <form id="upload-form">
-          <label for="image" class="label">Character Image</label>
-          <input id="image" name="image" type="file" accept="image/png,image/jpeg,image/webp" required />
-          <button id="submit-btn" type="submit">Start Workflow</button>
-        </form>
-
-        <p id="message" class="message" aria-live="polite"></p>
-      </section>
-
-      <section class="card">
-        <h2>Workflow Status</h2>
-        <p id="workflow-id" class="workflow-id">No workflow started yet.</p>
-        <ul id="steps" class="steps"></ul>
-      </section>
-
-      <section class="card">
-        <h2>Outputs</h2>
-        <div id="outputs" class="output-grid"></div>
-      </section>
-    </main>
-
-    <script src="/app.js" defer></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

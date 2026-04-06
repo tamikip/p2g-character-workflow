@@ -12,6 +12,7 @@ async function copyAsMock(sourcePath, destinationPath) {
 
   return {
     provider: "mock",
+    mime_type: path.extname(destinationPath).toLowerCase() === ".jpg" ? "image/jpeg" : "image/png",
     output_path: destinationPath
   };
 }

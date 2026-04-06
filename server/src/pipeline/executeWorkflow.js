@@ -7,10 +7,16 @@ const {
   setWorkflowStatus
 } = require("../services/workflowStore");
 const {
-  mockGenerateCg,
-  mockGenerateExpression,
-  mockRemoveBackground
-} = require("../adapters/mockImageAdapter");
+  createBackgroundRemovalPrompt,
+  getCgPrompt,
+  getExpressionPrompt
+} = require("../services/promptLoader");
+const {
+  getBackgroundRemovalRunner,
+  getCgRunner,
+  getExpressionRunner,
+  getMimeTypeFromPath
+} = require("../services/providerRegistry");
 
 function toPublicOutputUrl(workflowId, fileName) {
   return `/outputs/${workflowId}/${fileName}`;
@@ -33,63 +39,104 @@ async function executeWorkflow(workflowId, config) {
   }
 
   try {
-    const sourcePath = workflow.source_image.upload_path;
-    const sourceExt = path.extname(sourcePath) || ".png";
+    let currentSourcePath = workflow.source_image.upload_path;
+    let currentSourceMimeType = workflow.source_image.mime_type;
     const outputDir = path.join(config.outputDir, workflowId);
+    const backgroundRemovalRunner = getBackgroundRemovalRunner(config);
+    const expressionRunner = getExpressionRunner(config);
+    const cgRunner = getCgRunner(config);
 
     await fs.mkdir(outputDir, { recursive: true });
 
     await runStep(workflowId, "validate_input", async () => true);
 
-    const cutoutName = `cutout${sourceExt}`;
-    await runStep(workflowId, "remove_background", async () => {
-      await mockRemoveBackground({
-        sourcePath,
-        destinationPath: path.join(outputDir, cutoutName)
+    const cutoutResult = await runStep(workflowId, "remove_background", async () => {
+      return backgroundRemovalRunner.run({
+        config,
+        sourcePath: currentSourcePath,
+        sourceMimeType: currentSourceMimeType,
+        destinationPath: path.join(outputDir, "cutout.png"),
+        prompt: createBackgroundRemovalPrompt()
       });
     });
+    currentSourcePath = cutoutResult.output_path;
+    currentSourceMimeType = getMimeTypeFromPath(cutoutResult.output_path);
 
     const expressionMap = {
       thinking: "expression_thinking",
       surprise: "expression_surprise",
       angry: "expression_angry"
     };
+    const expressionOutputs = {};
 
     for (const [expressionName, stepName] of Object.entries(expressionMap)) {
-      const outputName = `expression-${expressionName}${sourceExt}`;
-
-      await runStep(workflowId, stepName, async () => {
-        await mockGenerateExpression({
-          sourcePath,
-          destinationPath: path.join(outputDir, outputName)
+      const expressionPrompt = await getExpressionPrompt(expressionName);
+      const expressionResult = await runStep(workflowId, stepName, async () => {
+        return expressionRunner.run({
+          config,
+          sourcePath: currentSourcePath,
+          sourceMimeType: currentSourceMimeType,
+          destinationPath: path.join(outputDir, `expression-${expressionName}.png`),
+          prompt: expressionPrompt
         });
       });
+
+      expressionOutputs[expressionName] = toPublicOutputUrl(
+        workflowId,
+        path.basename(expressionResult.output_path)
+      );
     }
 
+    const cgPrompt = await getCgPrompt();
+    const cgOutputs = [];
+
     for (const [stepName, outputName] of [
-      ["cg_01", `cg-01${sourceExt}`],
-      ["cg_02", `cg-02${sourceExt}`]
+      ["cg_01", "cg-01.png"],
+      ["cg_02", "cg-02.png"]
     ]) {
-      await runStep(workflowId, stepName, async () => {
-        await mockGenerateCg({
-          sourcePath,
-          destinationPath: path.join(outputDir, outputName)
+      const cgResult = await runStep(workflowId, stepName, async () => {
+        return cgRunner.run({
+          config,
+          sourcePath: currentSourcePath,
+          sourceMimeType: currentSourceMimeType,
+          destinationPath: path.join(outputDir, outputName),
+          prompt: cgPrompt
         });
       });
+
+      cgOutputs.push(toPublicOutputUrl(workflowId, path.basename(cgResult.output_path)));
     }
 
     const outputs = {
-      cutout: toPublicOutputUrl(workflowId, cutoutName),
-      expressions: {
-        thinking: toPublicOutputUrl(workflowId, `expression-thinking${sourceExt}`),
-        surprise: toPublicOutputUrl(workflowId, `expression-surprise${sourceExt}`),
-        angry: toPublicOutputUrl(workflowId, `expression-angry${sourceExt}`)
+      cutout: toPublicOutputUrl(workflowId, path.basename(cutoutResult.output_path)),
+      providers: {
+        remove_background: backgroundRemovalRunner.provider,
+        expressions: expressionRunner.provider,
+        cg: cgRunner.provider
       },
-      cg_outputs: [
-        toPublicOutputUrl(workflowId, `cg-01${sourceExt}`),
-        toPublicOutputUrl(workflowId, `cg-02${sourceExt}`)
-      ]
+      expressions: expressionOutputs,
+      cg_outputs: cgOutputs
     };
+
+    const currentWorkflow = getWorkflow(workflowId);
+    const manifest = {
+      workflow_id: workflowId,
+      status: "completed",
+      generated_at: new Date().toISOString(),
+      steps: Object.fromEntries(
+        Object.entries(currentWorkflow.steps).map(([stepName, step]) => [stepName, step.status])
+      ),
+      outputs
+    };
+
+    const manifestFileName = "manifest.json";
+    await fs.writeFile(
+      path.join(outputDir, manifestFileName),
+      JSON.stringify(manifest, null, 2),
+      "utf8"
+    );
+
+    outputs.manifest = toPublicOutputUrl(workflowId, manifestFileName);
 
     setWorkflowOutputs(workflowId, outputs);
     setWorkflowStatus(workflowId, "completed", "done", null);

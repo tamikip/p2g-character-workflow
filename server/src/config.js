@@ -21,7 +21,19 @@ module.exports = {
   maxUploadSizeBytes: parseInteger(process.env.MAX_UPLOAD_SIZE_BYTES, 10 * 1024 * 1024),
   minImageWidth: parseInteger(process.env.MIN_IMAGE_WIDTH, 256),
   minImageHeight: parseInteger(process.env.MIN_IMAGE_HEIGHT, 256),
+  pipelineMode: process.env.PIPELINE_MODE || "mock",
+  bgRemovalProvider: process.env.BG_REMOVAL_PROVIDER || "mock",
+  expressionProvider: process.env.EXPRESSION_PROVIDER || "mock",
+  cgProvider: process.env.CG_PROVIDER || "mock",
+  banana2ApiKey: process.env.BANANA2_API_KEY || "",
+  banana2BaseUrl: process.env.BANANA2_BASE_URL || "https://api.apiyi.com",
+  banana2Model: process.env.BANANA2_MODEL || "gemini-3.1-flash-image-preview",
+  banana2ImageSize: process.env.BANANA2_IMAGE_SIZE || "1K",
+  banana2AspectRatio: process.env.BANANA2_ASPECT_RATIO || "1:1",
+  banana2TimeoutMs: parseInteger(process.env.BANANA2_TIMEOUT_MS, 120000),
   uploadDir: resolvePath(process.env.UPLOAD_DIR, "./tmp/uploads"),
   outputDir: resolvePath(process.env.OUTPUT_DIR, "./tmp/outputs"),
-  webDir: path.resolve(projectRoot, "web")
+  webDir: path.resolve(projectRoot, "web"),
+  webDistDir: path.resolve(projectRoot, "web/dist"),
+  promptsDir: path.resolve(projectRoot, "prompts")
 };

@@ -1,4 +1,5 @@
 const path = require("path");
+const fs = require("fs");
 const cors = require("cors");
 const express = require("express");
 const multer = require("multer");
@@ -25,14 +26,23 @@ app.use("/api/*", (_req, res) => {
   res.status(404).json({ error: "API route not found" });
 });
 
-app.use(express.static(config.webDir));
+const hasBuiltWeb = fs.existsSync(path.join(config.webDistDir, "index.html"));
+if (hasBuiltWeb) {
+  app.use(express.static(config.webDistDir));
+}
 
 app.get("*", (req, res, next) => {
   if (req.path.startsWith("/api/")) {
     return next();
   }
 
-  return res.sendFile(path.join(config.webDir, "index.html"));
+  if (!hasBuiltWeb) {
+    return res.status(503).json({
+      error: "Web bundle not found. Use Vite dev server on http://localhost:5173 or run `npm --prefix web run build`."
+    });
+  }
+
+  return res.sendFile(path.join(config.webDistDir, "index.html"));
 });
 
 app.use((error, _req, res, _next) => {

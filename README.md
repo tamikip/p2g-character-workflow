@@ -76,9 +76,13 @@ character-workflow-agent/
 ├── tmp/                         # generated at runtime (gitignored)
 ├── web/
 │   ├── README.md
+│   ├── package.json
+│   ├── vite.config.js
 │   ├── index.html
-│   ├── app.js
-│   └── styles.css
+│   └── src/
+│       ├── App.jsx
+│       ├── main.jsx
+│       └── styles.css
 └── server/
     ├── README.md
     ├── package.json
@@ -97,13 +101,18 @@ character-workflow-agent/
 Phase 1 prototype code is now included:
 - upload API (`POST /api/workflows`)
 - workflow status API (`GET /api/workflows/:id`)
-- mock pipeline that produces:
+- pipeline that produces:
   - `cutout`
   - `expression-thinking`
   - `expression-surprise`
   - `expression-angry`
   - `cg-01`
   - `cg-02`
+- mock mode by default
+- Banana2 live provider integration for:
+  - background removal edit
+  - 3 expression edits
+  - 2 CG generations
 - simple web UI served by the server
 
 ## Roadmap
@@ -114,23 +123,62 @@ See:
 ## Quick Start
 1. Install dependencies
 ```bash
-cd server
-npm install
+npm --prefix server install
+npm --prefix web install
 ```
-2. Create environment file (optional but recommended)
+2. Create environment file
 ```bash
-cd ..
 cp .env.example .env
 ```
-3. Start server
+3. Start backend
 ```bash
-cd server
-npm run dev
+npm --prefix server run dev
 ```
-4. Open app
+4. Start frontend (new terminal)
+```bash
+npm --prefix web run dev
+```
+5. Open dynamic site
 ```text
-http://localhost:3001
+http://localhost:5173
 ```
+
+## Live Provider Setup
+If you want the workflow to behave closer to the current `p2g` flow, switch the pipeline to Banana2:
+
+```bash
+cp .env.example .env
+```
+
+Then set:
+
+```dotenv
+PIPELINE_MODE=live
+BG_REMOVAL_PROVIDER=banana2
+EXPRESSION_PROVIDER=banana2
+CG_PROVIDER=banana2
+BANANA2_API_KEY=sk-your-key
+BANANA2_BASE_URL=https://api.apiyi.com
+BANANA2_MODEL=gemini-3.1-flash-image-preview
+BANANA2_IMAGE_SIZE=1K
+BANANA2_ASPECT_RATIO=1:1
+```
+
+Notes:
+- Banana2 live mode currently accepts `PNG` and `JPG/JPEG` uploads.
+- If Banana2 is selected but no API key is configured, the server falls back to mock mode automatically.
+- Expressions and CG are generated from the cutout result, not directly from the raw upload.
+
+## Build And Serve
+1. Build frontend bundle
+```bash
+npm --prefix web run build
+```
+2. Start backend
+```bash
+npm --prefix server run start
+```
+3. Open app at `http://localhost:3001`
 
 ## API (Phase 1 Prototype)
 - `POST /api/workflows`
@@ -139,6 +187,8 @@ http://localhost:3001
   - returns `202 Accepted` with `workflow_id`
 - `GET /api/workflows/:id`
   - returns workflow status, per-step progress, and output URLs
+- `GET /outputs/:workflowId/manifest.json`
+  - returns packaged workflow manifest for the finished run
 - `GET /outputs/:workflowId/:fileName`
   - serves generated mock assets
 
