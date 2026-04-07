@@ -10,6 +10,12 @@ const {
   banana2RemoveBackground,
   isBanana2Configured
 } = require("../adapters/banana2ImageAdapter");
+const {
+  isPlatoConfigured,
+  platoGenerateCg,
+  platoGenerateExpression,
+  platoRemoveBackground
+} = require("../adapters/platoImageAdapter");
 
 function getMimeTypeFromPath(filePath) {
   const ext = path.extname(filePath).toLowerCase();
@@ -34,6 +40,13 @@ function getProviderLabel(provider, config) {
 }
 
 function getBackgroundRemovalRunner(config) {
+  if (config.bgRemovalProvider === "plato" && isPlatoConfigured(config)) {
+    return {
+      provider: "plato",
+      run: platoRemoveBackground
+    };
+  }
+
   if (config.bgRemovalProvider === "banana2" && isBanana2Configured(config)) {
     return {
       provider: "banana2",
@@ -48,6 +61,13 @@ function getBackgroundRemovalRunner(config) {
 }
 
 function getExpressionRunner(config) {
+  if (config.expressionProvider === "plato" && isPlatoConfigured(config)) {
+    return {
+      provider: "plato",
+      run: platoGenerateExpression
+    };
+  }
+
   if (config.expressionProvider === "banana2" && isBanana2Configured(config)) {
     return {
       provider: "banana2",
@@ -62,6 +82,13 @@ function getExpressionRunner(config) {
 }
 
 function getCgRunner(config) {
+  if (config.cgProvider === "plato" && isPlatoConfigured(config)) {
+    return {
+      provider: "plato",
+      run: platoGenerateCg
+    };
+  }
+
   if (config.cgProvider === "banana2" && isBanana2Configured(config)) {
     return {
       provider: "banana2",

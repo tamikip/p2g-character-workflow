@@ -144,7 +144,7 @@ http://localhost:5173
 ```
 
 ## Live Provider Setup
-If you want the workflow to behave closer to the current `p2g` flow, switch the pipeline to Banana2:
+If you want the workflow to behave closer to the current `p2g` flow, switch the pipeline to Plato AI:
 
 ```bash
 cp .env.example .env
@@ -154,19 +154,18 @@ Then set:
 
 ```dotenv
 PIPELINE_MODE=live
-BG_REMOVAL_PROVIDER=banana2
-EXPRESSION_PROVIDER=banana2
-CG_PROVIDER=banana2
-BANANA2_API_KEY=sk-your-key
-BANANA2_BASE_URL=https://api.apiyi.com
-BANANA2_MODEL=gemini-3.1-flash-image-preview
-BANANA2_IMAGE_SIZE=1K
-BANANA2_ASPECT_RATIO=1:1
+BG_REMOVAL_PROVIDER=plato
+EXPRESSION_PROVIDER=plato
+CG_PROVIDER=plato
+PLATO_API_KEY=sk-your-key
+PLATO_BASE_URL=https://api.bltcy.ai/v1
+PLATO_MODEL=gemini-3.1-flash-image-preview
 ```
 
 Notes:
-- Banana2 live mode currently accepts `PNG` and `JPG/JPEG` uploads.
-- If Banana2 is selected but no API key is configured, the server falls back to mock mode automatically.
+- Plato live mode currently accepts `PNG`, `JPG/JPEG`, and `WEBP` uploads.
+- If Plato is selected but no API key is configured, the server falls back to mock mode automatically.
+- The current Plato account must have positive quota, otherwise requests will fail with `额度不足`.
 - Expressions and CG are generated from the cutout result, not directly from the raw upload.
 
 ## Build And Serve
