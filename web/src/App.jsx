@@ -13,7 +13,7 @@ const STEP_ORDER = [
 const POLL_INTERVAL_MS = 1000;
 const PERSONAL_GITHUB_URL = "https://github.com/hzagaming";
 const PROJECT_GITHUB_URL = "https://github.com/hzagaming/p2g-character-workflow";
-const APP_VERSION = "1.0.0";
+const APP_VERSION = "1.0.1";
 
 const COLOR_STYLES = [
   { id: "cyan", label: { zh: "海蓝", en: "Cyan", ja: "シアン", ru: "Циан" } },
@@ -26,6 +26,49 @@ const COLOR_STYLES = [
 ];
 
 const ANNOUNCEMENTS = [
+  {
+    version: "1.0.1",
+    date: "2026-04-07",
+    type: "patch",
+    title: {
+      zh: "1.0.1 可用性修复",
+      en: "1.0.1 Usability Fixes",
+      ja: "1.0.1 使いやすさ修正",
+      ru: "1.0.1 Исправления удобства"
+    },
+    summary: {
+      zh: "调整 rembg 模型、修复 Plato 图像返回解析、优化报错可读性并精简主界面装饰。",
+      en: "Adjusts the rembg model, fixes Plato image response parsing, improves error readability, and simplifies UI decoration.",
+      ja: "rembg モデルを調整し、Plato の画像応答解析を修正、エラー可読性を改善し、UI 装飾を整理しました。",
+      ru: "Настроена модель rembg, исправлен разбор графического ответа Plato, улучшена читаемость ошибок и упрощены декоративные элементы UI."
+    },
+    bullets: {
+      zh: [
+        "rembg 默认改为 isnet-anime，并支持通过配置切换模型。",
+        "Plato 兼容完整 /chat/completions 地址，并可解析 markdown 图片链接返回。",
+        "浅色模式下的错误区域颜色重做，并新增一键复制错误信息按钮。",
+        "移除多余圆角浅蓝装饰和中部大圆图形，主界面更干净。"
+      ],
+      en: [
+        "rembg now defaults to isnet-anime and stays configurable through the environment.",
+        "Plato now supports a full /chat/completions endpoint and parses markdown image links.",
+        "Error blocks were redesigned for light mode and now include a one-click copy button.",
+        "Extra rounded cyan decorations and the central circle graphic were removed for a cleaner layout."
+      ],
+      ja: [
+        "rembg のデフォルトを isnet-anime に変更し、設定で切り替え可能にしました。",
+        "Plato は完全な /chat/completions エンドポイントに対応し、markdown 画像リンクを解析できます。",
+        "ライトモードのエラー表示を見やすくし、ワンクリックコピーも追加しました。",
+        "余計な丸いシアン装飾と中央の円形グラフィックを削除し、画面を整理しました。"
+      ],
+      ru: [
+        "rembg теперь по умолчанию использует isnet-anime и остается настраиваемым через окружение.",
+        "Plato поддерживает полный endpoint /chat/completions и умеет разбирать markdown-ссылки на изображения.",
+        "Блоки ошибок переработаны для светлой темы и получили кнопку копирования в один клик.",
+        "Убраны лишние голубые скругленные украшения и центральный круг, интерфейс стал чище."
+      ]
+    }
+  },
   {
     version: "1.0.0",
     date: "2026-04-07",
@@ -227,7 +270,7 @@ const UI = {
     providerCutout: "抠图",
     providerExpressions: "表情",
     providerCg: "CG",
-    footer: "Copyright © 2026 Character Workflow Agent. All rights reserved. Developed by Hanazar Ochikawa.",
+    footer: "Copyright © 2026 Mirako Company. Developed by Hanazar Ochikawa.",
     authorLabel: "作者",
     authorName: "Hanazar Ochikawa",
     aboutText: "这是一个把单张角色图转换成可复用角色资产的工作流原型。当前重点是先把 cutout、表情差分、CG 场景图与调试体验打磨稳定。",
@@ -235,6 +278,9 @@ const UI = {
     projectGithub: "项目仓库",
     annLatest: "最新公告",
     annHistory: "历史版本",
+    chooseFile: "选择文件",
+    copyError: "复制报错",
+    copied: "已复制",
     stepLabels: {
       validate_input: "输入校验",
       remove_background: "背景去除",
@@ -293,7 +339,7 @@ const UI = {
     providerCutout: "Cutout",
     providerExpressions: "Expressions",
     providerCg: "CG",
-    footer: "Copyright © 2026 Character Workflow Agent. All rights reserved. Developed by Hanazar Ochikawa.",
+    footer: "Copyright © 2026 Mirako Company. Developed by Hanazar Ochikawa.",
     authorLabel: "Author",
     authorName: "Hanazar Ochikawa",
     aboutText: "This is a workflow prototype focused on turning one character image into reusable character assets. The current goal is to make cutout, expression variants, CG scenes, and debugging stable and practical.",
@@ -301,6 +347,9 @@ const UI = {
     projectGithub: "Project Repository",
     annLatest: "Latest Announcement",
     annHistory: "Version History",
+    chooseFile: "Choose File",
+    copyError: "Copy Error",
+    copied: "Copied",
     stepLabels: {
       validate_input: "Validate Input",
       remove_background: "Remove Background",
@@ -359,7 +408,7 @@ const UI = {
     providerCutout: "切り抜き",
     providerExpressions: "表情",
     providerCg: "CG",
-    footer: "Copyright © 2026 Character Workflow Agent. All rights reserved. Developed by Hanazar Ochikawa.",
+    footer: "Copyright © 2026 Mirako Company. Developed by Hanazar Ochikawa.",
     authorLabel: "作者",
     authorName: "Hanazar Ochikawa",
     aboutText: "このプロトタイプは、1 枚のキャラクター画像を再利用可能な資産へ変換するワークフローを目指しています。現在は cutout、表情差分、CG シーン、デバッグ体験の安定化を重視しています。",
@@ -367,6 +416,9 @@ const UI = {
     projectGithub: "プロジェクト GitHub",
     annLatest: "最新のお知らせ",
     annHistory: "履歴バージョン",
+    chooseFile: "ファイルを選択",
+    copyError: "エラーをコピー",
+    copied: "コピー済み",
     stepLabels: {
       validate_input: "入力検証",
       remove_background: "背景除去",
@@ -425,7 +477,7 @@ const UI = {
     providerCutout: "Вырезание",
     providerExpressions: "Выражения",
     providerCg: "CG",
-    footer: "Copyright © 2026 Character Workflow Agent. All rights reserved. Developed by Hanazar Ochikawa.",
+    footer: "Copyright © 2026 Mirako Company. Developed by Hanazar Ochikawa.",
     authorLabel: "Автор",
     authorName: "Hanazar Ochikawa",
     aboutText: "Это прототип workflow, который превращает одно изображение персонажа в набор переиспользуемых ассетов. Сейчас основной акцент на стабильности cutout, вариаций выражений, CG-сцен и удобной отладки.",
@@ -433,6 +485,9 @@ const UI = {
     projectGithub: "Репозиторий проекта",
     annLatest: "Последнее объявление",
     annHistory: "История версий",
+    chooseFile: "Выбрать файл",
+    copyError: "Скопировать ошибку",
+    copied: "Скопировано",
     stepLabels: {
       validate_input: "Проверка входа",
       remove_background: "Удаление фона",
@@ -540,6 +595,19 @@ function renderDebugEntries(debug) {
   return Object.entries(debug).filter(([, value]) => value !== null && value !== undefined && value !== "");
 }
 
+async function copyText(value) {
+  if (!value) {
+    return false;
+  }
+
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch (_error) {
+    return false;
+  }
+}
+
 export default function App() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [workflow, setWorkflow] = useState(null);
@@ -550,7 +618,8 @@ export default function App() {
   const [language, setLanguage] = useState(() => readStoredValue("cwa-language", "zh"));
   const [mode, setMode] = useState(() => readStoredValue("cwa-mode", "dark"));
   const [accent, setAccent] = useState(() => readStoredValue("cwa-accent", "cyan"));
-  const [selectedAnnouncement, setSelectedAnnouncement] = useState("1.0.0");
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState("1.0.1");
+  const [copiedErrorKey, setCopiedErrorKey] = useState("");
 
   const t = UI[language] || UI.zh;
 
@@ -625,6 +694,18 @@ export default function App() {
 
   const selectedAnnouncementData = ANNOUNCEMENTS.find((entry) => entry.version === selectedAnnouncement) || ANNOUNCEMENTS[0];
 
+  async function handleCopyError(copyKey, text) {
+    const ok = await copyText(text);
+    if (!ok) {
+      return;
+    }
+
+    setCopiedErrorKey(copyKey);
+    window.setTimeout(() => {
+      setCopiedErrorKey((current) => (current === copyKey ? "" : current));
+    }, 1600);
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
 
@@ -666,7 +747,6 @@ export default function App() {
       <main className="page">
         <header className="topbar panel glass">
           <div className="brand-block">
-            <span className="eyebrow">{t.workflowBadge}</span>
             <div>
               <h1>{t.appName}</h1>
               <p>{t.heroText}</p>
@@ -683,7 +763,6 @@ export default function App() {
         <section className="hero-grid">
           <article className="panel hero-card">
             <div className="hero-copy">
-              <span className="eyebrow">{t.livePreview}</span>
               <h2>{t.heroTitle}</h2>
               <p>{t.heroText}</p>
               <div className="hero-metrics">
@@ -701,28 +780,28 @@ export default function App() {
                 </div>
               </div>
             </div>
-            <div className="hero-orbit">
-              <div className="orbit-ring orbit-ring-a" />
-              <div className="orbit-ring orbit-ring-b" />
-              <div className="orbit-core">P2G</div>
-            </div>
           </article>
 
           <article className="panel upload-card">
-            <span className="eyebrow">{t.uploadTitle}</span>
             <h2>{t.uploadTitle}</h2>
             <p>{t.uploadText}</p>
             <form className="upload-form" onSubmit={handleSubmit}>
               <div className="field-group">
                 <label htmlFor="image">{t.chooseImage}</label>
-                <input
-                  id="image"
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
-                  disabled={submitting}
-                />
-                <small>{selectedFile ? selectedFile.name : t.chooseHint}</small>
+                <div className="file-picker">
+                  <label className="file-trigger" htmlFor="image">
+                    {t.chooseFile}
+                  </label>
+                  <span className="file-name">{selectedFile ? selectedFile.name : t.chooseHint}</span>
+                  <input
+                    id="image"
+                    className="file-input"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
+                    disabled={submitting}
+                  />
+                </div>
               </div>
               <button type="submit" disabled={submitting}>
                 {submitting ? t.starting : t.startWorkflow}
@@ -736,7 +815,6 @@ export default function App() {
           <article className="panel workflow-panel">
             <div className="panel-heading">
               <div>
-                <span className="eyebrow">{t.sectionSummary}</span>
                 <h2>{t.workflowTitle}</h2>
               </div>
               {workflow ? <span className={`status-chip ${workflow.status}`}>{t.statuses[workflow.status] || workflow.status}</span> : null}
@@ -779,7 +857,20 @@ export default function App() {
                             {t.openFile}
                           </a>
                         ) : null}
-                        {step.error ? <pre className="step-error">{step.error}</pre> : null}
+                        {step.error ? (
+                          <div className="error-stack">
+                            <div className="error-toolbar">
+                              <button
+                                type="button"
+                                className="copy-button"
+                                onClick={() => handleCopyError(`step-${stepName}`, step.error)}
+                              >
+                                {copiedErrorKey === `step-${stepName}` ? t.copied : t.copyError}
+                              </button>
+                            </div>
+                            <pre className="step-error">{step.error}</pre>
+                          </div>
+                        ) : null}
                         {debugEntries.length ? (
                           <details className="debug-panel">
                             <summary>{t.debugDetails}</summary>
@@ -804,7 +895,6 @@ export default function App() {
           <article className="panel outputs-panel">
             <div className="panel-heading">
               <div>
-                <span className="eyebrow">{t.livePreview}</span>
                 <h2>{t.outputsTitle}</h2>
               </div>
             </div>
@@ -831,6 +921,15 @@ export default function App() {
             {workflow?.error ? (
               <section className="error-box">
                 <h3>{t.latestError}</h3>
+                <div className="error-toolbar">
+                  <button
+                    type="button"
+                    className="copy-button"
+                    onClick={() => handleCopyError("workflow", workflow.error)}
+                  >
+                    {copiedErrorKey === "workflow" ? t.copied : t.copyError}
+                  </button>
+                </div>
                 <pre>{workflow.error}</pre>
                 {renderDebugEntries(workflow.error_details).length ? (
                   <details className="debug-panel" open>
@@ -873,7 +972,6 @@ export default function App() {
           <section className="settings-modal panel glass" onClick={(event) => event.stopPropagation()}>
             <div className="settings-header">
               <div>
-                <span className="eyebrow">{t.settings}</span>
                 <h2>{t.settingsTitle}</h2>
               </div>
               <button type="button" className="icon-button" onClick={() => setSettingsOpen(false)}>
@@ -972,7 +1070,6 @@ export default function App() {
                       ))}
                     </div>
                     <article className="announcement-detail">
-                      <span className="eyebrow">{t.annLatest}</span>
                       <h3>{selectedAnnouncementData.title[language] || selectedAnnouncementData.title.zh}</h3>
                       <p>{selectedAnnouncementData.summary[language] || selectedAnnouncementData.summary.zh}</p>
                       <ul>
@@ -987,7 +1084,6 @@ export default function App() {
                 {settingsTab === "about" ? (
                   <div className="settings-section">
                     <div className="about-card">
-                      <span className="eyebrow">{t.about}</span>
                       <h3>{t.authorLabel}: {t.authorName}</h3>
                       <p>{t.aboutText}</p>
                       <div className="choice-row about-links">

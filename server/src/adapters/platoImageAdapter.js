@@ -10,6 +10,20 @@ function normalizeBaseUrl(baseUrl) {
   return baseUrl.replace(/\/+$/, "");
 }
 
+function resolvePlatoEndpoint(baseUrl) {
+  const normalized = normalizeBaseUrl(baseUrl);
+
+  if (normalized.endsWith("/chat/completions")) {
+    return normalized;
+  }
+
+  return `${normalized}/chat/completions`;
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function getMimeTypeFromInput(sourceMimeType) {
   if (sourceMimeType === "image/jpg") {
     return "image/jpeg";
@@ -46,14 +60,48 @@ function findImageDataUrl(value) {
   };
 }
 
+function findRemoteImageUrl(value) {
+  if (!value || typeof value !== "string") {
+    return null;
+  }
+
+  const markdownMatch = value.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/);
+  if (markdownMatch) {
+    return markdownMatch[1];
+  }
+
+  const directMatch = value.match(/https?:\/\/\S+\.(?:png|jpg|jpeg|webp)(?:\?\S*)?/i);
+  if (directMatch) {
+    return directMatch[0];
+  }
+
+  return null;
+}
+
 function extractImagePayload(responseJson) {
   const message = responseJson?.choices?.[0]?.message;
+  const messageContent =
+    typeof message?.content === "string"
+      ? message.content
+      : Array.isArray(message?.content)
+        ? message.content
+            .map((item) => item?.text || item?.content || "")
+            .filter(Boolean)
+            .join("\n")
+        : "";
 
   const directImage = message?.images?.find((item) => item?.image_url?.url);
   if (directImage?.image_url?.url) {
     const parsed = findImageDataUrl(directImage.image_url.url);
     if (parsed) {
       return parsed;
+    }
+
+    const remoteUrl = findRemoteImageUrl(directImage.image_url.url);
+    if (remoteUrl) {
+      return {
+        remoteUrl
+      };
     }
   }
 
@@ -69,6 +117,13 @@ function extractImagePayload(responseJson) {
       if (parsed) {
         return parsed;
       }
+
+      const remoteUrl = findRemoteImageUrl(candidateUrl);
+      if (remoteUrl) {
+        return {
+          remoteUrl
+        };
+      }
     }
   }
 
@@ -77,26 +132,66 @@ function extractImagePayload(responseJson) {
     if (parsed) {
       return parsed;
     }
+
+    const remoteUrl = findRemoteImageUrl(message.content);
+    if (remoteUrl) {
+      return {
+        remoteUrl
+      };
+    }
   }
 
   throw new Error(
     responseJson?.error?.message ||
-      "Plato returned no image payload. Check whether the token has quota and image output is enabled."
+      (messageContent
+        ? `Plato did not return an image. Model response: ${messageContent}`
+        : "Plato returned no image payload. Check whether the token has quota and image output is enabled.")
   );
 }
 
 async function writeImagePayload(destinationPath, imagePayload) {
-  const ext = getExtensionFromMimeType(imagePayload.mimeType);
+  let mimeType = imagePayload.mimeType;
+  let imageBuffer;
+
+  if (imagePayload.remoteUrl) {
+    const remoteResponse = await fetch(imagePayload.remoteUrl);
+    if (!remoteResponse.ok) {
+      throw new AppError(
+        `Plato image download failed with status ${remoteResponse.status}`,
+        502,
+        {
+          provider: "plato",
+          image_url: imagePayload.remoteUrl,
+          http_status: remoteResponse.status
+        },
+        "PLATO_IMAGE_DOWNLOAD_FAILED"
+      );
+    }
+
+    const contentType = remoteResponse.headers.get("content-type") || "";
+    mimeType = contentType.startsWith("image/") ? contentType.split(";")[0] : "image/png";
+    imageBuffer = Buffer.from(await remoteResponse.arrayBuffer());
+  } else {
+    mimeType = imagePayload.mimeType;
+    imageBuffer = Buffer.from(imagePayload.data, "base64");
+  }
+
+  const ext = getExtensionFromMimeType(mimeType);
   const parsed = path.parse(destinationPath);
   const finalPath = path.join(parsed.dir, `${parsed.name}${ext}`);
 
   await fs.mkdir(path.dirname(finalPath), { recursive: true });
-  await fs.writeFile(finalPath, Buffer.from(imagePayload.data, "base64"));
+  await fs.writeFile(finalPath, imageBuffer);
 
   return {
     provider: "plato",
-    mime_type: imagePayload.mimeType,
-    output_path: finalPath
+    mime_type: mimeType,
+    output_path: finalPath,
+    debug: imagePayload.remoteUrl
+      ? {
+          image_url: imagePayload.remoteUrl
+        }
+      : null
   };
 }
 
@@ -128,45 +223,57 @@ async function callPlatoImageEdit({
   }
 
   const imageBytes = await fs.readFile(sourcePath);
-  const endpoint = `${normalizeBaseUrl(config.platoBaseUrl)}/chat/completions`;
+  const endpoint = resolvePlatoEndpoint(config.platoBaseUrl);
   const dataUrl = `data:${getMimeTypeFromInput(sourceMimeType)};base64,${imageBytes.toString("base64")}`;
 
   let response;
   let responseJson;
+  let lastError = null;
 
-  try {
-    response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.platoApiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: config.platoModel,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: prompt
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: dataUrl
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${config.platoApiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: config.platoModel,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: prompt
+                },
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: dataUrl
+                  }
                 }
-              }
-            ]
-          }
-        ],
-        modalities: ["text", "image"]
-      }),
-      signal: AbortSignal.timeout(config.platoTimeoutMs)
-    });
+              ]
+            }
+          ],
+          modalities: ["text", "image"]
+        }),
+        signal: AbortSignal.timeout(config.platoTimeoutMs)
+      });
 
-    responseJson = await response.json();
-  } catch (error) {
+      responseJson = await response.json();
+      lastError = null;
+      break;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) {
+        await wait(600 * attempt);
+      }
+    }
+  }
+
+  if (lastError) {
     throw new AppError("Plato request could not be completed.", 502, {
       provider: "plato",
       endpoint,
@@ -174,7 +281,9 @@ async function callPlatoImageEdit({
       source_path: sourcePath,
       source_mime_type: sourceMimeType,
       timeout_ms: config.platoTimeoutMs,
-      original_error: error.message
+      retry_attempts: 3,
+      original_error: lastError.message,
+      original_cause: lastError.cause?.message || null
     }, "PLATO_NETWORK_ERROR");
   }
 

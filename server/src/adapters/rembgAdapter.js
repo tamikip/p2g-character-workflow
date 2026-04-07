@@ -29,7 +29,7 @@ async function rembgRemoveBackground({ config, sourcePath, destinationPath }) {
   try {
     await execFileAsync(
       config.rembgPythonPath,
-      [config.rembgScriptPath, sourcePath, destinationPath],
+      [config.rembgScriptPath, sourcePath, destinationPath, config.rembgModel],
       {
         cwd: path.resolve(config.projectRoot),
         timeout: config.rembgTimeoutMs,
@@ -42,6 +42,7 @@ async function rembgRemoveBackground({ config, sourcePath, destinationPath }) {
       provider: "rembg",
       command: config.rembgPythonPath,
       script_path: config.rembgScriptPath,
+      model: config.rembgModel,
       source_path: sourcePath,
       destination_path: destinationPath,
       timeout_ms: config.rembgTimeoutMs,

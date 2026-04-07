@@ -29,6 +29,7 @@ module.exports = {
   rembgPythonPath: process.env.REMBG_PYTHON_PATH || path.resolve(projectRoot, ".venv/bin/python"),
   rembgScriptPath:
     process.env.REMBG_SCRIPT_PATH || path.resolve(projectRoot, "server/scripts/rembg_remove.py"),
+  rembgModel: process.env.REMBG_MODEL || "isnet-anime",
   rembgTimeoutMs: parseInteger(process.env.REMBG_TIMEOUT_MS, 180000),
   platoApiKey: process.env.PLATO_API_KEY || "",
   platoBaseUrl: process.env.PLATO_BASE_URL || "https://api.bltcy.ai/v1",
