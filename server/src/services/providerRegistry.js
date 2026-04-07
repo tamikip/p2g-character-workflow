@@ -16,6 +16,10 @@ const {
   platoGenerateExpression,
   platoRemoveBackground
 } = require("../adapters/platoImageAdapter");
+const {
+  isRembgConfigured,
+  rembgRemoveBackground
+} = require("../adapters/rembgAdapter");
 
 function getMimeTypeFromPath(filePath) {
   const ext = path.extname(filePath).toLowerCase();
@@ -40,6 +44,13 @@ function getProviderLabel(provider, config) {
 }
 
 function getBackgroundRemovalRunner(config) {
+  if (config.bgRemovalProvider === "rembg" && isRembgConfigured(config)) {
+    return {
+      provider: "rembg",
+      run: rembgRemoveBackground
+    };
+  }
+
   if (config.bgRemovalProvider === "plato" && isPlatoConfigured(config)) {
     return {
       provider: "plato",

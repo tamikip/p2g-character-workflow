@@ -154,16 +154,19 @@ Then set:
 
 ```dotenv
 PIPELINE_MODE=live
-BG_REMOVAL_PROVIDER=plato
+BG_REMOVAL_PROVIDER=rembg
 EXPRESSION_PROVIDER=plato
 CG_PROVIDER=plato
+REMBG_PYTHON_PATH=./.venv/bin/python
+REMBG_SCRIPT_PATH=./server/scripts/rembg_remove.py
 PLATO_API_KEY=sk-your-key
 PLATO_BASE_URL=https://api.bltcy.ai/v1
 PLATO_MODEL=gemini-3.1-flash-image-preview
 ```
 
 Notes:
-- Plato live mode currently accepts `PNG`, `JPG/JPEG`, and `WEBP` uploads.
+- `rembg` is recommended for `remove_background` because it is cheaper, deterministic, and better suited to transparent cutouts than image generation APIs.
+- Plato live mode currently accepts `PNG`, `JPG/JPEG`, and `WEBP` uploads for expression / CG generation.
 - If Plato is selected but no API key is configured, the server falls back to mock mode automatically.
 - The current Plato account must have positive quota, otherwise requests will fail with `额度不足`.
 - Expressions and CG are generated from the cutout result, not directly from the raw upload.

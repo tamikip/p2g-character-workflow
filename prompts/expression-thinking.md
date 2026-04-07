@@ -1,11 +1,13 @@
 # Expression Prompt: Thinking
 
-## Intent
-Generate a "thinking" expression while preserving the same character identity from the reference image.
+## Goal
+Generate a transparent-background thinking expression while keeping the same character identity.
 
-## Prompt Template
-Keep the same character identity, facial structure, hairstyle, clothing cues, and overall style from the reference.
-Change only the expression to a thoughtful / thinking look.
-Eyes focused, subtle brow movement, natural mouth tension.
-Do not change age, gender presentation, body type, or core design details.
-Maintain consistency and avoid introducing new accessories or major style drift.
+## Current Template
+请保持同一角色的人设、发型、五官、服装、配饰、配色与画风一致。  
+必须是单人角色，不要新增人物。  
+不要改变角色年龄感、体型、服装款式、发型结构和标志性配饰。  
+基于抠图，生成思考表情，透明背景。表情重点：眼神集中、眉眼微收、嘴部自然克制。  
+只允许修改表情，不要修改姿态、发型、服装、配饰和角色设定。  
+输出透明背景 PNG，主体完整，边缘干净。  
+负面：多人、文字、水印、裁切、畸形手、多肢、模糊、低清晰度、换装、变发型、变配饰、人物不一致。

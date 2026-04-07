@@ -25,3 +25,4 @@ Prototype backend for:
 - If `web/dist/index.html` exists, backend serves built frontend automatically.
 - Banana2 live mode is supported through environment variables in `.env`.
 - Plato live mode is also supported through the OpenAI-compatible `/v1/chat/completions` interface.
+- `rembg` is available as a local background-removal provider for transparent PNG cutouts.

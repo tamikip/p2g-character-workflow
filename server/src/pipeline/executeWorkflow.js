@@ -8,7 +8,7 @@ const {
 } = require("../services/workflowStore");
 const {
   createBackgroundRemovalPrompt,
-  getCgPrompt,
+  getCgPrompts,
   getExpressionPrompt
 } = require("../services/promptLoader");
 const {
@@ -68,9 +68,15 @@ async function executeWorkflow(workflowId, config) {
       angry: "expression_angry"
     };
     const expressionOutputs = {};
+    const promptPack = {
+      remove_background: createBackgroundRemovalPrompt(),
+      expressions: {},
+      cg: []
+    };
 
     for (const [expressionName, stepName] of Object.entries(expressionMap)) {
       const expressionPrompt = await getExpressionPrompt(expressionName);
+      promptPack.expressions[expressionName] = expressionPrompt;
       const expressionResult = await runStep(workflowId, stepName, async () => {
         return expressionRunner.run({
           config,
@@ -87,20 +93,23 @@ async function executeWorkflow(workflowId, config) {
       );
     }
 
-    const cgPrompt = await getCgPrompt();
+    const cgPromptEntries = await getCgPrompts();
     const cgOutputs = [];
 
-    for (const [stepName, outputName] of [
+    for (const [index, [stepName, outputName]] of [
       ["cg_01", "cg-01.png"],
       ["cg_02", "cg-02.png"]
-    ]) {
+    ].entries()) {
+      const cgPromptEntry = cgPromptEntries[index];
+      promptPack.cg.push(cgPromptEntry);
+
       const cgResult = await runStep(workflowId, stepName, async () => {
         return cgRunner.run({
           config,
           sourcePath: currentSourcePath,
           sourceMimeType: currentSourceMimeType,
           destinationPath: path.join(outputDir, outputName),
-          prompt: cgPrompt
+          prompt: cgPromptEntry.prompt
         });
       });
 
@@ -126,6 +135,7 @@ async function executeWorkflow(workflowId, config) {
       steps: Object.fromEntries(
         Object.entries(currentWorkflow.steps).map(([stepName, step]) => [stepName, step.status])
       ),
+      prompts: promptPack,
       outputs
     };
 

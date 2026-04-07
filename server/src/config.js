@@ -16,15 +16,20 @@ function parseInteger(value, fallback) {
 }
 
 module.exports = {
+  projectRoot,
   port: parseInteger(process.env.PORT, 3001),
   corsOrigin: process.env.CORS_ORIGIN || "*",
   maxUploadSizeBytes: parseInteger(process.env.MAX_UPLOAD_SIZE_BYTES, 10 * 1024 * 1024),
   minImageWidth: parseInteger(process.env.MIN_IMAGE_WIDTH, 256),
   minImageHeight: parseInteger(process.env.MIN_IMAGE_HEIGHT, 256),
   pipelineMode: process.env.PIPELINE_MODE || "mock",
-  bgRemovalProvider: process.env.BG_REMOVAL_PROVIDER || "mock",
+  bgRemovalProvider: process.env.BG_REMOVAL_PROVIDER || "rembg",
   expressionProvider: process.env.EXPRESSION_PROVIDER || "mock",
   cgProvider: process.env.CG_PROVIDER || "mock",
+  rembgPythonPath: process.env.REMBG_PYTHON_PATH || path.resolve(projectRoot, ".venv/bin/python"),
+  rembgScriptPath:
+    process.env.REMBG_SCRIPT_PATH || path.resolve(projectRoot, "server/scripts/rembg_remove.py"),
+  rembgTimeoutMs: parseInteger(process.env.REMBG_TIMEOUT_MS, 180000),
   platoApiKey: process.env.PLATO_API_KEY || "",
   platoBaseUrl: process.env.PLATO_BASE_URL || "https://api.bltcy.ai/v1",
   platoModel: process.env.PLATO_MODEL || "gemini-3.1-flash-image-preview",
