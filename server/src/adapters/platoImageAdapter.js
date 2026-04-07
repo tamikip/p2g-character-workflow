@@ -1,5 +1,6 @@
 const fs = require("fs/promises");
 const path = require("path");
+const { AppError } = require("../utils/errors");
 
 function isPlatoConfigured(config) {
   return Boolean(config.platoApiKey);
@@ -107,56 +108,104 @@ async function callPlatoImageEdit({
   prompt
 }) {
   if (!isPlatoConfigured(config)) {
-    throw new Error("PLATO_API_KEY is missing.");
+    throw new AppError("PLATO_API_KEY is missing.", 500, {
+      provider: "plato",
+      base_url: config.platoBaseUrl,
+      model: config.platoModel
+    }, "PLATO_API_KEY_MISSING");
   }
 
   if (!["image/png", "image/jpeg", "image/jpg", "image/webp"].includes(sourceMimeType)) {
-    throw new Error("Plato live mode currently supports PNG, JPG, JPEG, and WEBP inputs only.");
+    throw new AppError(
+      "Plato live mode currently supports PNG, JPG, JPEG, and WEBP inputs only.",
+      400,
+      {
+        provider: "plato",
+        received_mime_type: sourceMimeType
+      },
+      "PLATO_UNSUPPORTED_MIME_TYPE"
+    );
   }
 
   const imageBytes = await fs.readFile(sourcePath);
   const endpoint = `${normalizeBaseUrl(config.platoBaseUrl)}/chat/completions`;
   const dataUrl = `data:${getMimeTypeFromInput(sourceMimeType)};base64,${imageBytes.toString("base64")}`;
 
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${config.platoApiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: config.platoModel,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: prompt
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: dataUrl
-              }
-            }
-          ]
-        }
-      ],
-      modalities: ["text", "image"]
-    }),
-    signal: AbortSignal.timeout(config.platoTimeoutMs)
-  });
+  let response;
+  let responseJson;
 
-  const responseJson = await response.json();
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.platoApiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: config.platoModel,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: prompt
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: dataUrl
+                }
+              }
+            ]
+          }
+        ],
+        modalities: ["text", "image"]
+      }),
+      signal: AbortSignal.timeout(config.platoTimeoutMs)
+    });
+
+    responseJson = await response.json();
+  } catch (error) {
+    throw new AppError("Plato request could not be completed.", 502, {
+      provider: "plato",
+      endpoint,
+      model: config.platoModel,
+      source_path: sourcePath,
+      source_mime_type: sourceMimeType,
+      timeout_ms: config.platoTimeoutMs,
+      original_error: error.message
+    }, "PLATO_NETWORK_ERROR");
+  }
 
   if (!response.ok) {
-    throw new Error(
-      responseJson?.error?.message || `Plato request failed with status ${response.status}`
+    throw new AppError(
+      responseJson?.error?.message || `Plato request failed with status ${response.status}`,
+      502,
+      {
+        provider: "plato",
+        endpoint,
+        model: config.platoModel,
+        http_status: response.status,
+        response_body: JSON.stringify(responseJson)
+      },
+      "PLATO_REQUEST_FAILED"
     );
   }
 
-  const imagePayload = extractImagePayload(responseJson);
+  let imagePayload;
+
+  try {
+    imagePayload = extractImagePayload(responseJson);
+  } catch (error) {
+    throw new AppError(error.message, 502, {
+      provider: "plato",
+      endpoint,
+      model: config.platoModel,
+      response_body: JSON.stringify(responseJson)
+    }, "PLATO_IMAGE_PAYLOAD_MISSING");
+  }
+
   return writeImagePayload(destinationPath, imagePayload);
 }
 

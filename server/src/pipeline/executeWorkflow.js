@@ -3,6 +3,7 @@ const fs = require("fs/promises");
 const {
   getWorkflow,
   markStepStatus,
+  mergeWorkflowOutputs,
   setWorkflowOutputs,
   setWorkflowStatus
 } = require("../services/workflowStore");
@@ -17,19 +18,74 @@ const {
   getExpressionRunner,
   getMimeTypeFromPath
 } = require("../services/providerRegistry");
+const { formatErrorDetails } = require("../utils/errors");
 
 function toPublicOutputUrl(workflowId, fileName) {
   return `/outputs/${workflowId}/${fileName}`;
 }
 
-async function runStep(workflowId, stepName, runFn) {
-  markStepStatus(workflowId, stepName, "running");
-  setWorkflowStatus(workflowId, "running", stepName, null);
+async function writeManifestSnapshot(workflowId, outputDir, promptPack) {
+  const workflow = getWorkflow(workflowId);
+  if (!workflow) {
+    return null;
+  }
 
-  const result = await runFn();
+  const manifest = {
+    workflow_id: workflowId,
+    status: workflow.status,
+    current_step: workflow.current_step,
+    generated_at: new Date().toISOString(),
+    error: workflow.error,
+    error_details: workflow.error_details,
+    steps: workflow.steps,
+    prompts: promptPack,
+    outputs: workflow.outputs
+  };
 
-  markStepStatus(workflowId, stepName, "success");
-  return result;
+  const manifestFileName = "manifest.json";
+  await fs.writeFile(path.join(outputDir, manifestFileName), JSON.stringify(manifest, null, 2), "utf8");
+  mergeWorkflowOutputs(workflowId, {
+    manifest: toPublicOutputUrl(workflowId, manifestFileName)
+  });
+
+  return manifest;
+}
+
+async function runStep(workflowId, stepName, provider, runFn, onSuccess) {
+  markStepStatus(workflowId, stepName, "running", null, { provider });
+  setWorkflowStatus(workflowId, "running", stepName, null, null);
+
+  try {
+    const result = await runFn();
+    const outputUrl = result?.output_path
+      ? toPublicOutputUrl(workflowId, path.basename(result.output_path))
+      : null;
+
+    markStepStatus(workflowId, stepName, "success", null, {
+      provider,
+      output_url: outputUrl,
+      debug: result?.debug || null
+    });
+
+    if (typeof onSuccess === "function") {
+      await onSuccess(result, outputUrl);
+    }
+
+    return result;
+  } catch (error) {
+    const detailed = formatErrorDetails(error, {
+      step: stepName,
+      provider,
+      workflow_id: workflowId
+    });
+
+    markStepStatus(workflowId, stepName, "failed", detailed.message, {
+      provider,
+      debug: detailed.debug
+    });
+    setWorkflowStatus(workflowId, "failed", stepName, detailed.message, detailed.debug);
+    throw error;
+  }
 }
 
 async function executeWorkflow(workflowId, config) {
@@ -37,6 +93,12 @@ async function executeWorkflow(workflowId, config) {
   if (!workflow) {
     return null;
   }
+
+  const promptPack = {
+    remove_background: createBackgroundRemovalPrompt(),
+    expressions: {},
+    cg: []
+  };
 
   try {
     let currentSourcePath = workflow.source_image.upload_path;
@@ -48,17 +110,42 @@ async function executeWorkflow(workflowId, config) {
 
     await fs.mkdir(outputDir, { recursive: true });
 
-    await runStep(workflowId, "validate_input", async () => true);
-
-    const cutoutResult = await runStep(workflowId, "remove_background", async () => {
-      return backgroundRemovalRunner.run({
-        config,
-        sourcePath: currentSourcePath,
-        sourceMimeType: currentSourceMimeType,
-        destinationPath: path.join(outputDir, "cutout.png"),
-        prompt: createBackgroundRemovalPrompt()
-      });
+    mergeWorkflowOutputs(workflowId, {
+      providers: {
+        remove_background: backgroundRemovalRunner.provider,
+        expressions: expressionRunner.provider,
+        cg: cgRunner.provider
+      }
     });
+
+    await runStep(workflowId, "validate_input", "system", async () => true);
+    await writeManifestSnapshot(workflowId, outputDir, promptPack);
+
+    const cutoutResult = await runStep(
+      workflowId,
+      "remove_background",
+      backgroundRemovalRunner.provider,
+      async () =>
+        backgroundRemovalRunner.run({
+          config,
+          sourcePath: currentSourcePath,
+          sourceMimeType: currentSourceMimeType,
+          destinationPath: path.join(outputDir, "cutout.png"),
+          prompt: promptPack.remove_background
+        }),
+      async (result, outputUrl) => {
+        currentSourcePath = result.output_path;
+        currentSourceMimeType = getMimeTypeFromPath(result.output_path);
+        mergeWorkflowOutputs(workflowId, {
+          cutout: outputUrl,
+          providers: {
+            remove_background: backgroundRemovalRunner.provider
+          }
+        });
+        await writeManifestSnapshot(workflowId, outputDir, promptPack);
+      }
+    );
+
     currentSourcePath = cutoutResult.output_path;
     currentSourceMimeType = getMimeTypeFromPath(cutoutResult.output_path);
 
@@ -67,91 +154,93 @@ async function executeWorkflow(workflowId, config) {
       surprise: "expression_surprise",
       angry: "expression_angry"
     };
-    const expressionOutputs = {};
-    const promptPack = {
-      remove_background: createBackgroundRemovalPrompt(),
-      expressions: {},
-      cg: []
-    };
 
     for (const [expressionName, stepName] of Object.entries(expressionMap)) {
       const expressionPrompt = await getExpressionPrompt(expressionName);
       promptPack.expressions[expressionName] = expressionPrompt;
-      const expressionResult = await runStep(workflowId, stepName, async () => {
-        return expressionRunner.run({
-          config,
-          sourcePath: currentSourcePath,
-          sourceMimeType: currentSourceMimeType,
-          destinationPath: path.join(outputDir, `expression-${expressionName}.png`),
-          prompt: expressionPrompt
-        });
-      });
 
-      expressionOutputs[expressionName] = toPublicOutputUrl(
+      await runStep(
         workflowId,
-        path.basename(expressionResult.output_path)
+        stepName,
+        expressionRunner.provider,
+        async () =>
+          expressionRunner.run({
+            config,
+            sourcePath: currentSourcePath,
+            sourceMimeType: currentSourceMimeType,
+            destinationPath: path.join(outputDir, `expression-${expressionName}.png`),
+            prompt: expressionPrompt
+          }),
+        async (_result, outputUrl) => {
+          mergeWorkflowOutputs(workflowId, {
+            expressions: {
+              [expressionName]: outputUrl
+            },
+            providers: {
+              expressions: expressionRunner.provider
+            }
+          });
+          await writeManifestSnapshot(workflowId, outputDir, promptPack);
+        }
       );
     }
 
     const cgPromptEntries = await getCgPrompts();
-    const cgOutputs = [];
 
     for (const [index, [stepName, outputName]] of [
       ["cg_01", "cg-01.png"],
       ["cg_02", "cg-02.png"]
     ].entries()) {
       const cgPromptEntry = cgPromptEntries[index];
-      promptPack.cg.push(cgPromptEntry);
+      promptPack.cg[index] = cgPromptEntry;
 
-      const cgResult = await runStep(workflowId, stepName, async () => {
-        return cgRunner.run({
-          config,
-          sourcePath: currentSourcePath,
-          sourceMimeType: currentSourceMimeType,
-          destinationPath: path.join(outputDir, outputName),
-          prompt: cgPromptEntry.prompt
-        });
-      });
+      await runStep(
+        workflowId,
+        stepName,
+        cgRunner.provider,
+        async () =>
+          cgRunner.run({
+            config,
+            sourcePath: currentSourcePath,
+            sourceMimeType: currentSourceMimeType,
+            destinationPath: path.join(outputDir, outputName),
+            prompt: cgPromptEntry.prompt
+          }),
+        async (_result, outputUrl) => {
+          const nextCgOutputs = getWorkflow(workflowId)?.outputs?.cg_outputs || [null, null];
+          nextCgOutputs[index] = outputUrl;
 
-      cgOutputs.push(toPublicOutputUrl(workflowId, path.basename(cgResult.output_path)));
+          mergeWorkflowOutputs(workflowId, {
+            cg_outputs: nextCgOutputs,
+            providers: {
+              cg: cgRunner.provider
+            }
+          });
+          await writeManifestSnapshot(workflowId, outputDir, promptPack);
+        }
+      );
     }
 
+    const currentWorkflow = getWorkflow(workflowId);
     const outputs = {
-      cutout: toPublicOutputUrl(workflowId, path.basename(cutoutResult.output_path)),
+      ...currentWorkflow.outputs,
       providers: {
         remove_background: backgroundRemovalRunner.provider,
         expressions: expressionRunner.provider,
         cg: cgRunner.provider
-      },
-      expressions: expressionOutputs,
-      cg_outputs: cgOutputs
+      }
     };
-
-    const currentWorkflow = getWorkflow(workflowId);
-    const manifest = {
-      workflow_id: workflowId,
-      status: "completed",
-      generated_at: new Date().toISOString(),
-      steps: Object.fromEntries(
-        Object.entries(currentWorkflow.steps).map(([stepName, step]) => [stepName, step.status])
-      ),
-      prompts: promptPack,
-      outputs
-    };
-
-    const manifestFileName = "manifest.json";
-    await fs.writeFile(
-      path.join(outputDir, manifestFileName),
-      JSON.stringify(manifest, null, 2),
-      "utf8"
-    );
-
-    outputs.manifest = toPublicOutputUrl(workflowId, manifestFileName);
 
     setWorkflowOutputs(workflowId, outputs);
-    setWorkflowStatus(workflowId, "completed", "done", null);
+    setWorkflowStatus(workflowId, "completed", "done", null, null);
+    await writeManifestSnapshot(workflowId, outputDir, promptPack);
   } catch (error) {
-    setWorkflowStatus(workflowId, "failed", workflow.current_step, error.message);
+    const currentWorkflow = getWorkflow(workflowId);
+    const outputDir = path.join(config.outputDir, workflowId);
+
+    if (currentWorkflow) {
+      await writeManifestSnapshot(workflowId, outputDir, promptPack).catch(() => null);
+    }
   }
 
   return getWorkflow(workflowId);

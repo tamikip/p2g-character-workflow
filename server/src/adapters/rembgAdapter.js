@@ -1,5 +1,6 @@
 const path = require("path");
 const { execFile } = require("child_process");
+const { AppError } = require("../utils/errors");
 
 function execFileAsync(command, args, options = {}) {
   return new Promise((resolve, reject) => {
@@ -37,7 +38,16 @@ async function rembgRemoveBackground({ config, sourcePath, destinationPath }) {
     );
   } catch (error) {
     const stderr = (error.stderr || "").trim();
-    throw new Error(stderr || error.message || "rembg background removal failed.");
+    throw new AppError(stderr || error.message || "rembg background removal failed.", 500, {
+      provider: "rembg",
+      command: config.rembgPythonPath,
+      script_path: config.rembgScriptPath,
+      source_path: sourcePath,
+      destination_path: destinationPath,
+      timeout_ms: config.rembgTimeoutMs,
+      stderr,
+      stdout: (error.stdout || "").trim()
+    }, "REMBG_EXECUTION_FAILED");
   }
 
   return {

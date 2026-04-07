@@ -5,6 +5,7 @@ const express = require("express");
 const multer = require("multer");
 const config = require("./config");
 const workflowsRouter = require("./routes/workflows");
+const { formatErrorDetails } = require("./utils/errors");
 
 const app = express();
 
@@ -48,18 +49,27 @@ app.get("*", (req, res, next) => {
 app.use((error, _req, res, _next) => {
   if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
     return res.status(400).json({
-      error: `File is too large. Maximum allowed is ${Math.floor(config.maxUploadSizeBytes / (1024 * 1024))}MB.`
+      error: `File is too large. Maximum allowed is ${Math.floor(config.maxUploadSizeBytes / (1024 * 1024))}MB.`,
+      details: {
+        code: error.code,
+        max_upload_size_bytes: config.maxUploadSizeBytes
+      }
     });
   }
 
   const statusCode = error.statusCode || 500;
+  const detailed = formatErrorDetails(error, {
+    route: _req.originalUrl,
+    method: _req.method
+  });
 
   if (statusCode >= 500) {
     console.error(error);
   }
 
   return res.status(statusCode).json({
-    error: error.message || "Unexpected server error."
+    error: detailed.message,
+    details: detailed.debug
   });
 });
 

@@ -41,6 +41,7 @@ module.exports = {
   banana2AspectRatio: process.env.BANANA2_ASPECT_RATIO || "1:1",
   banana2TimeoutMs: parseInteger(process.env.BANANA2_TIMEOUT_MS, 120000),
   uploadDir: resolvePath(process.env.UPLOAD_DIR, "./tmp/uploads"),
+  workflowStateDir: resolvePath(process.env.WORKFLOW_STATE_DIR, "./tmp/workflows"),
   outputDir: resolvePath(process.env.OUTPUT_DIR, "./tmp/outputs"),
   webDir: path.resolve(projectRoot, "web"),
   webDistDir: path.resolve(projectRoot, "web/dist"),
