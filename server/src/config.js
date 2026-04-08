@@ -45,7 +45,7 @@ module.exports = {
   uploadDir: resolvePath(process.env.UPLOAD_DIR, "./tmp/uploads"),
   workflowStateDir: resolvePath(process.env.WORKFLOW_STATE_DIR, "./tmp/workflows"),
   outputDir: resolvePath(process.env.OUTPUT_DIR, "./tmp/outputs"),
-  webDir: path.resolve(projectRoot, "web"),
-  webDistDir: path.resolve(projectRoot, "web/dist"),
+  webDir: projectRoot,
+  webDistDir: path.resolve(projectRoot, "dist"),
   promptsDir: path.resolve(projectRoot, "prompts")
 };

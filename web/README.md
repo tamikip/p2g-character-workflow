@@ -1,29 +1,24 @@
 # Web (Phase 1)
 
-Static frontend for:
-- image upload
-- workflow stage status display
-- previewing cutout / expressions / CG outputs
-- GitHub Pages friendly deployment
+This folder now only keeps frontend notes.
 
-## Stack
-- plain `index.html`
-- browser-side `app.js`
-- `styles.css`
-- Vite 5 for optional local dev/build only
+The actual GitHub Pages friendly frontend source has been moved to the project root:
+- `/index.html`
+- `/app.js`
+- `/styles.css`
+- `/vite.config.js`
 
-## Local Development
-1. `npm install`
-2. `npm run dev`
-3. Open `http://localhost:5173`
-4. The static page talks to `http://localhost:3001` by default when running on localhost
+## Current Direction
+- Root static frontend for GitHub Pages
+- Backend API remains in `server/`
+- This `web/` directory can be removed later once all tooling/docs no longer reference it
 
 ## GitHub Pages
-- Deploy the contents of `web/` or the build output from `web/dist`
+- Deploy the root static frontend or the root build output from `/dist`
 - In Settings -> Backend, set the API root URL for your hosted server
 - Asset URLs such as `/outputs/...` are resolved against that configured backend URL
 
 ## Build
-1. `npm run build`
-2. Static files are generated in `web/dist`
-3. Backend serves `web/index.html`, `web/app.js`, and `web/styles.css` directly in local/server mode
+1. Run `npm run build` from the project root
+2. Static files are generated in `/dist`
+3. Backend serves `/index.html`, `/app.js`, and `/styles.css` directly in local/server mode

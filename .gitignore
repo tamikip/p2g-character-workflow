@@ -141,3 +141,5 @@ vite.config.ts.timestamp-*
 # Runtime generated files
 tmp/
 .venv/
+
+.DS_Store

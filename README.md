@@ -47,7 +47,8 @@ into a structured and repeatable pipeline.
 - Production deployment hardening
 
 ## Architecture Direction (Prototype-Friendly)
-- `web/`: lightweight frontend for upload, status, and output preview
+- root static frontend: `index.html`, `app.js`, `styles.css`, `vite.config.js`
+- `web/`: frontend notes / legacy packaging metadata
 - `server/`: API + orchestration pipeline + provider adapters
 - `workflows/`: pipeline definition and stage contracts
 - `prompts/`: reusable prompt templates for expression and CG generation
@@ -74,15 +75,12 @@ character-workflow-agent/
 ├── workflows/
 │   └── pipeline-overview.md
 ├── tmp/                         # generated at runtime (gitignored)
+├── index.html
+├── app.js
+├── styles.css
+├── vite.config.js
 ├── web/
-│   ├── README.md
-│   ├── package.json
-│   ├── vite.config.js
-│   ├── index.html
-│   └── src/
-│       ├── App.jsx
-│       ├── main.jsx
-│       └── styles.css
+│   └── README.md
 └── server/
     ├── README.md
     ├── package.json
@@ -123,8 +121,8 @@ See:
 ## Quick Start
 1. Install dependencies
 ```bash
+npm install
 npm --prefix server install
-npm --prefix web install
 ```
 2. Create environment file
 ```bash
@@ -136,9 +134,9 @@ npm --prefix server run dev
 ```
 4. Start frontend (new terminal)
 ```bash
-npm --prefix web run dev
+npm run dev:web
 ```
-5. Open dynamic site
+5. Open static site in dev mode
 ```text
 http://localhost:5173
 ```
@@ -160,7 +158,7 @@ CG_PROVIDER=plato
 REMBG_PYTHON_PATH=./.venv/bin/python
 REMBG_SCRIPT_PATH=./server/scripts/rembg_remove.py
 PLATO_API_KEY=sk-your-key
-PLATO_BASE_URL=https://api.bltcy.ai/v1
+PLATO_BASE_URL=https://api.bltcy.ai/v1/chat/completions
 PLATO_MODEL=gemini-3.1-flash-image-preview
 ```
 
@@ -174,7 +172,7 @@ Notes:
 ## Build And Serve
 1. Build frontend bundle
 ```bash
-npm --prefix web run build
+npm run build
 ```
 2. Start backend
 ```bash

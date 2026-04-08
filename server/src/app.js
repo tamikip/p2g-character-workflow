@@ -9,6 +9,8 @@ const { formatErrorDetails } = require("./utils/errors");
 
 const app = express();
 const staticWebIndexPath = path.join(config.webDir, "index.html");
+const staticAppPath = path.join(config.webDir, "app.js");
+const staticStylesPath = path.join(config.webDir, "styles.css");
 
 app.use(
   cors({
@@ -30,11 +32,11 @@ app.use("/api/*", (_req, res) => {
 
 if (fs.existsSync(staticWebIndexPath)) {
   app.get("/app.js", (_req, res) => {
-    res.sendFile(path.join(config.webDir, "app.js"));
+    res.sendFile(staticAppPath);
   });
 
   app.get("/styles.css", (_req, res) => {
-    res.sendFile(path.join(config.webDir, "styles.css"));
+    res.sendFile(staticStylesPath);
   });
 }
 
@@ -45,7 +47,7 @@ app.get("*", (req, res, next) => {
 
   if (!fs.existsSync(staticWebIndexPath)) {
     return res.status(503).json({
-      error: "Static web entry not found. Expected web/index.html for the GitHub Pages friendly frontend."
+      error: "Static web entry not found. Expected /index.html in the project root for the GitHub Pages friendly frontend."
     });
   }
 
