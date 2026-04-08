@@ -14,7 +14,7 @@ const STEP_ORDER = [
 const POLL_INTERVAL_MS = 1000;
 const PERSONAL_GITHUB_URL = "https://github.com/hzagaming";
 const PROJECT_GITHUB_URL = "https://github.com/hzagaming/p2g-character-workflow";
-const APP_VERSION = "1.2.0";
+const APP_VERSION = "1.3.0";
 
 const COLOR_STYLES = [
   { id: "cyan", label: { zh: "海蓝", en: "Cyan", ja: "シアン", ru: "Циан" } },
@@ -48,6 +48,49 @@ const STYLE_PRESETS = [
 ];
 
 const ANNOUNCEMENTS = [
+  {
+    version: "1.3.0",
+    date: "2026-04-08",
+    type: "minor",
+    title: {
+      zh: "1.3.0 提示词与场景池升级",
+      en: "1.3.0 Prompt and Scene Pool Upgrade",
+      ja: "1.3.0 プロンプトとシーンプール強化",
+      ru: "1.3.0 Улучшение промптов и пула сцен"
+    },
+    summary: {
+      zh: "将表情与 CG 提示词压缩为更短的中文版本，并把 CG 随机场景池扩展到 200 个。",
+      en: "Compressed the expression and CG prompts into shorter Chinese prompts and expanded the randomized CG scene pool to 200 entries.",
+      ja: "表情と CG のプロンプトを短い中国語版へ整理し、ランダム CG シーンプールを 200 件まで拡張しました。",
+      ru: "Промпты для выражений и CG стали короче и компактнее, а случайный пул CG-сцен расширен до 200 вариантов."
+    },
+    bullets: {
+      zh: [
+        "表情提示词改成短版中文，更适合直接喂给当前工作流。",
+        "生气表情调整为轻微生气，避免出现龇牙咧嘴的夸张怒脸。",
+        "CG 提示词新增 16:9 横屏和尽量高清要求。",
+        "CG Example Scene Pool 与运行时场景池同步扩充到 200 个场景。"
+      ],
+      en: [
+        "Expression prompts were rewritten into shorter Chinese prompts that fit the current workflow better.",
+        "The angry expression was softened to avoid exaggerated bared-teeth anger.",
+        "CG prompts now explicitly require a 16:9 landscape layout and higher image quality.",
+        "The documented CG Example Scene Pool and the runtime scene pool were both expanded to 200 scenes."
+      ],
+      ja: [
+        "表情プロンプトを、現在のワークフローに合う短い中国語版へ整理しました。",
+        "怒り表情は誇張した歯むき出しを避け、軽い怒りへ調整しました。",
+        "CG プロンプトに 16:9 横長と高画質の指定を追加しました。",
+        "CG の Example Scene Pool と実行時シーンプールを 200 件まで拡張しました。"
+      ],
+      ru: [
+        "Промпты выражений переписаны в коротком китайском формате, лучше подходящем текущему workflow.",
+        "Злое выражение смягчено, чтобы избегать чрезмерной гримасы с оскалом.",
+        "В CG-промпты добавлены требования к формату 16:9 и более высокой четкости.",
+        "CG Example Scene Pool и реальный runtime-пул сцен синхронно расширены до 200 вариантов."
+      ]
+    }
+  },
   {
     version: "1.2.0",
     date: "2026-04-08",
@@ -713,7 +756,7 @@ const state = {
   accent: readStoredValue("cwa-accent", "cyan"),
   visualPreset: readStoredValue("cwa-visual-preset", "default"),
   apiBase: readStoredValue("cwa-api-base", defaultApiBase()),
-  selectedAnnouncement: "1.2.0",
+  selectedAnnouncement: "1.3.0",
   copiedErrorKey: "",
   copyPayloads: {}
 };
