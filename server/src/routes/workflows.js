@@ -1,7 +1,9 @@
 const express = require("express");
 const fs = require("fs/promises");
+const syncFs = require("fs");
 const multer = require("multer");
 const path = require("path");
+const archiver = require("archiver");
 const { v4: uuidv4 } = require("uuid");
 const config = require("../config");
 const { AppError } = require("../utils/errors");
@@ -62,6 +64,37 @@ router.get("/:id", (req, res, next) => {
     }
 
     res.json(workflow);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/:id/download", async (req, res, next) => {
+  try {
+    const workflow = getWorkflow(req.params.id);
+    if (!workflow) {
+      throw new AppError("Workflow not found.", 404);
+    }
+
+    const workflowOutputDir = path.join(config.outputDir, workflow.id);
+    if (!syncFs.existsSync(workflowOutputDir)) {
+      throw new AppError("Workflow outputs are not available yet.", 404);
+    }
+
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename=\"${workflow.id}-outputs.zip\"`);
+
+    const archive = archiver("zip", {
+      zlib: { level: 9 }
+    });
+
+    archive.on("error", (error) => {
+      next(error);
+    });
+
+    archive.pipe(res);
+    archive.directory(workflowOutputDir, false);
+    await archive.finalize();
   } catch (error) {
     next(error);
   }

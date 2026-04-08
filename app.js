@@ -14,7 +14,7 @@ const STEP_ORDER = [
 const POLL_INTERVAL_MS = 1000;
 const PERSONAL_GITHUB_URL = "https://github.com/hzagaming";
 const PROJECT_GITHUB_URL = "https://github.com/hzagaming/p2g-character-workflow";
-const APP_VERSION = "1.3.0";
+const APP_VERSION = "1.3.1";
 
 const COLOR_STYLES = [
   { id: "cyan", label: { zh: "海蓝", en: "Cyan", ja: "シアン", ru: "Циан" } },
@@ -48,6 +48,49 @@ const STYLE_PRESETS = [
 ];
 
 const ANNOUNCEMENTS = [
+  {
+    version: "1.3.1",
+    date: "2026-04-08",
+    type: "patch",
+    title: {
+      zh: "1.3.1 下载与输出体验更新",
+      en: "1.3.1 Download and Output UX Update",
+      ja: "1.3.1 ダウンロードと出力体験の更新",
+      ru: "1.3.1 Обновление скачивания и вывода"
+    },
+    summary: {
+      zh: "目标输出更新为 8 个，为每个产出补充下载与复制按钮，并支持一键打包下载全部结果。",
+      en: "Updated the target output count to 8, added download and copy actions for every asset, and introduced one-click zip download for all outputs.",
+      ja: "目標出力数を 8 に更新し、各出力にダウンロードとコピー操作を追加、さらに全結果の一括 zip ダウンロードに対応しました。",
+      ru: "Количество целевых результатов обновлено до 8, для каждого ассета добавлены кнопки скачивания и копирования, а также появилась загрузка всех файлов одним zip."
+    },
+    bullets: {
+      zh: [
+        "首页目标输出数字从 6 改为 8，更准确反映当前工作流结果数量。",
+        "每张产出图新增打开、下载、复制按钮，便于单独取用素材。",
+        "结果栏新增“下载全部”，会通过 zip 一次性打包整个工作流输出目录。",
+        "manifest.json 不再只是链接，而是改成按钮形式，和其他操作保持一致。"
+      ],
+      en: [
+        "The hero metric now shows 8 outputs to match the current workflow.",
+        "Each generated asset now includes open, download, and copy actions for easier reuse.",
+        "The outputs panel now includes a Download All action that returns the full workflow output directory as a zip file.",
+        "manifest.json is now exposed as a button-based action to match the rest of the interface."
+      ],
+      ja: [
+        "ヒーローの出力数表示を 6 から 8 に変更し、現在のワークフローに合わせました。",
+        "各生成画像に開く、ダウンロード、コピー操作を追加し、素材を個別に扱いやすくしました。",
+        "出力欄に「すべてダウンロード」を追加し、ワークフロー出力ディレクトリを zip でまとめて取得できます。",
+        "manifest.json は単なるリンクではなく、他の操作と揃えたボタン形式になりました。"
+      ],
+      ru: [
+        "Счетчик целевых результатов на главном экране изменен с 6 на 8 в соответствии с текущим workflow.",
+        "Для каждого результата добавлены действия открытия, скачивания и копирования.",
+        "В блоке результатов появилась кнопка «Скачать все», которая отдает весь каталог результатов workflow одним zip.",
+        "manifest.json теперь открывается через кнопку, чтобы интерфейс был единообразным."
+      ]
+    }
+  },
   {
     version: "1.3.0",
     date: "2026-04-08",
@@ -373,6 +416,9 @@ const UI = {
     manifest: "结果清单",
     openManifest: "打开 manifest.json",
     openFile: "打开文件",
+    downloadFile: "下载",
+    copyAsset: "复制",
+    downloadAll: "下载全部",
     latestError: "最近错误",
     debugDetails: "调试详情",
     sourceInfo: "输入信息",
@@ -448,6 +494,9 @@ const UI = {
     manifest: "Result Manifest",
     openManifest: "Open manifest.json",
     openFile: "Open file",
+    downloadFile: "Download",
+    copyAsset: "Copy",
+    downloadAll: "Download All",
     latestError: "Latest Error",
     debugDetails: "Debug Details",
     sourceInfo: "Source",
@@ -523,6 +572,9 @@ const UI = {
     manifest: "結果マニフェスト",
     openManifest: "manifest.json を開く",
     openFile: "ファイルを開く",
+    downloadFile: "ダウンロード",
+    copyAsset: "コピー",
+    downloadAll: "すべてダウンロード",
     latestError: "最新エラー",
     debugDetails: "デバッグ詳細",
     sourceInfo: "入力情報",
@@ -598,6 +650,9 @@ const UI = {
     manifest: "Манифест результата",
     openManifest: "Открыть manifest.json",
     openFile: "Открыть файл",
+    downloadFile: "Скачать",
+    copyAsset: "Копировать",
+    downloadAll: "Скачать всё",
     latestError: "Последняя ошибка",
     debugDetails: "Подробности отладки",
     sourceInfo: "Источник",
@@ -686,6 +741,16 @@ function renderDebugEntries(debug) {
   return Object.entries(debug).filter(([, value]) => value !== null && value !== undefined && value !== "");
 }
 
+function inferFileNameFromUrl(url, fallback = "asset") {
+  if (!url) {
+    return fallback;
+  }
+
+  const clean = String(url).split("?")[0];
+  const segments = clean.split("/");
+  return segments[segments.length - 1] || fallback;
+}
+
 async function copyText(value) {
   if (!value) {
     return false;
@@ -697,6 +762,66 @@ async function copyText(value) {
   } catch (_error) {
     return false;
   }
+}
+
+async function copyAsset(url) {
+  if (!url) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(toAssetUrl(url));
+    if (!response.ok) {
+      return false;
+    }
+
+    const blob = await response.blob();
+    if (navigator.clipboard && window.ClipboardItem && blob.type.startsWith("image/")) {
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      return true;
+    }
+
+    return copyText(toAssetUrl(url));
+  } catch (_error) {
+    return false;
+  }
+}
+
+async function downloadAsset(url, fileName) {
+  if (!url) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(toAssetUrl(url));
+    if (!response.ok) {
+      return false;
+    }
+
+    const blob = await response.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = fileName || inferFileNameFromUrl(url);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+    return true;
+  } catch (_error) {
+    return false;
+  }
+}
+
+function flashCopiedAction(key) {
+  state.copiedActionKey = key;
+  renderApp();
+  window.setTimeout(() => {
+    if (state.copiedActionKey === key) {
+      state.copiedActionKey = "";
+      renderApp();
+    }
+  }, 1600);
 }
 
 
@@ -756,8 +881,9 @@ const state = {
   accent: readStoredValue("cwa-accent", "cyan"),
   visualPreset: readStoredValue("cwa-visual-preset", "default"),
   apiBase: readStoredValue("cwa-api-base", defaultApiBase()),
-  selectedAnnouncement: "1.3.0",
+  selectedAnnouncement: "1.3.1",
   copiedErrorKey: "",
+  copiedActionKey: "",
   copyPayloads: {}
 };
 
@@ -916,14 +1042,14 @@ function getOutputCards(t) {
   }
 
   return [
-    { title: t.stepLabels.expression_thinking, url: outputs.expressions?.thinking },
-    { title: t.stepLabels.expression_surprise, url: outputs.expressions?.surprise },
-    { title: t.stepLabels.expression_angry, url: outputs.expressions?.angry },
-    { title: t.stepLabels.cg_01, url: outputs.cg_outputs?.[0] },
-    { title: t.stepLabels.cg_02, url: outputs.cg_outputs?.[1] },
-    { title: t.stepLabels.cutout_expression_thinking, url: outputs.expression_cutouts?.thinking },
-    { title: t.stepLabels.cutout_expression_surprise, url: outputs.expression_cutouts?.surprise },
-    { title: t.stepLabels.cutout_expression_angry, url: outputs.expression_cutouts?.angry }
+    { title: t.stepLabels.expression_thinking, url: outputs.expressions?.thinking, fileName: "expression-thinking.png" },
+    { title: t.stepLabels.expression_surprise, url: outputs.expressions?.surprise, fileName: "expression-surprise.png" },
+    { title: t.stepLabels.expression_angry, url: outputs.expressions?.angry, fileName: "expression-angry.png" },
+    { title: t.stepLabels.cg_01, url: outputs.cg_outputs?.[0], fileName: "cg-01.png" },
+    { title: t.stepLabels.cg_02, url: outputs.cg_outputs?.[1], fileName: "cg-02.png" },
+    { title: t.stepLabels.cutout_expression_thinking, url: outputs.expression_cutouts?.thinking, fileName: "expression-thinking-cutout.png" },
+    { title: t.stepLabels.cutout_expression_surprise, url: outputs.expression_cutouts?.surprise, fileName: "expression-surprise-cutout.png" },
+    { title: t.stepLabels.cutout_expression_angry, url: outputs.expression_cutouts?.angry, fileName: "expression-angry-cutout.png" }
   ].filter((item) => Boolean(item.url));
 }
 
@@ -1206,7 +1332,7 @@ function renderApp() {
               <p>${escapeHtml(t.heroText)}</p>
               <div class="hero-metrics">
                 <div>
-                  <strong>6</strong>
+                  <strong>8</strong>
                   <span>${escapeHtml(state.language === "zh" ? "目标输出" : state.language === "ja" ? "出力数" : state.language === "ru" ? "выходов" : "outputs")}</span>
                 </div>
                 <div>
@@ -1283,9 +1409,10 @@ function renderApp() {
               </div>` : ""}
 
             ${outputs?.manifest ? `
-              <p class="manifest-link">
-                ${escapeHtml(t.manifest)}: <a href="${escapeHtml(toAssetUrl(outputs.manifest))}" target="_blank" rel="noreferrer">${escapeHtml(t.openManifest)}</a>
-              </p>` : ""}
+              <div class="output-toolbar">
+                ${outputs?.manifest ? `<button type="button" class="choice link-button" data-action="open-asset" data-url="${escapeHtml(outputs.manifest)}">${escapeHtml(t.openManifest)}</button>` : ""}
+                ${workflow?.id ? `<button type="button" class="choice link-button" data-action="download-all">${escapeHtml(t.downloadAll)}</button>` : ""}
+              </div>` : ""}
 
             ${workflow?.error ? `
               <section class="error-box">
@@ -1307,9 +1434,17 @@ function renderApp() {
                     <article class="output-card">
                       <div class="output-card-header">
                         <h3>${escapeHtml(card.title)}</h3>
-                        <a href="${escapeHtml(toAssetUrl(card.url))}" target="_blank" rel="noreferrer">${escapeHtml(t.openFile)}</a>
+                        <button type="button" class="choice link-button" data-action="open-asset" data-url="${escapeHtml(card.url)}">${escapeHtml(t.openFile)}</button>
                       </div>
                       <img src="${escapeHtml(toAssetUrl(card.url))}" alt="${escapeHtml(card.title)}" />
+                      <div class="output-actions">
+                        <button type="button" class="choice link-button" data-action="download-asset" data-url="${escapeHtml(card.url)}" data-file-name="${escapeHtml(card.fileName || inferFileNameFromUrl(card.url))}">
+                          ${escapeHtml(t.downloadFile)}
+                        </button>
+                        <button type="button" class="choice link-button" data-action="copy-asset" data-url="${escapeHtml(card.url)}" data-copy-key="asset-${escapeHtml(card.fileName || inferFileNameFromUrl(card.url))}">
+                          ${escapeHtml(state.copiedActionKey === `asset-${card.fileName || inferFileNameFromUrl(card.url)}` ? t.copied : t.copyAsset)}
+                        </button>
+                      </div>
                     </article>`
                 )
                 .join("")}
@@ -1447,6 +1582,43 @@ root.addEventListener("click", async (event) => {
   if (action === "set-announcement") {
     state.selectedAnnouncement = button.dataset.announcement || state.selectedAnnouncement;
     renderApp();
+    return;
+  }
+
+  if (action === "open-asset") {
+    const url = button.dataset.url;
+    if (url) {
+      window.open(toAssetUrl(url), "_blank", "noopener,noreferrer");
+    }
+    return;
+  }
+
+  if (action === "download-asset") {
+    const ok = await downloadAsset(button.dataset.url, button.dataset.fileName);
+    if (!ok) {
+      setMessage("error", state.language === "zh" ? "下载文件失败。" : state.language === "ja" ? "ファイルのダウンロードに失敗しました。" : state.language === "ru" ? "Не удалось скачать файл." : "Failed to download the file.");
+      renderApp();
+    }
+    return;
+  }
+
+  if (action === "download-all") {
+    if (state.workflow?.id) {
+      window.open(buildApiUrl(`/api/workflows/${state.workflow.id}/download`), "_blank", "noopener,noreferrer");
+    }
+    return;
+  }
+
+  if (action === "copy-asset") {
+    const copyKey = button.dataset.copyKey || "asset";
+    const ok = await copyAsset(button.dataset.url);
+    if (!ok) {
+      setMessage("error", state.language === "zh" ? "复制文件失败。" : state.language === "ja" ? "ファイルのコピーに失敗しました。" : state.language === "ru" ? "Не удалось скопировать файл." : "Failed to copy the file.");
+      renderApp();
+      return;
+    }
+
+    flashCopiedAction(copyKey);
     return;
   }
 

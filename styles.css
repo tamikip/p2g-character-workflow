@@ -623,6 +623,17 @@ code {
   margin-bottom: 14px;
 }
 
+.output-toolbar,
+.output-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.output-toolbar {
+  margin: 0 0 14px;
+}
+
 .manifest-link {
   margin: 0 0 14px;
   color: var(--muted);
@@ -673,6 +684,13 @@ code {
   border-radius: 18px;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)), rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.output-card .link-button,
+.output-toolbar .link-button,
+.output-actions .link-button {
+  width: fit-content;
+  text-decoration: none;
 }
 
 .footer {
