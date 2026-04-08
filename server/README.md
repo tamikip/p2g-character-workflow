@@ -22,7 +22,7 @@ Prototype backend for:
 ## Notes
 - Current generation behavior is mock mode (file-copy based) for rapid prototype validation.
 - Provider integration points are isolated in `src/adapters/`.
-- If `web/dist/index.html` exists, backend serves built frontend automatically.
+- Backend serves `web/index.html`, `web/app.js`, and `web/styles.css` directly for the static frontend.
 - Banana2 live mode is supported through environment variables in `.env`.
 - Plato live mode is also supported through the OpenAI-compatible `/v1/chat/completions` interface.
 - `rembg` is available as a local background-removal provider for transparent PNG cutouts.

@@ -89,7 +89,8 @@
 
 html,
 body,
-#root {
+#root,
+#app {
   min-height: 100%;
 }
 
@@ -846,4 +847,24 @@ code {
   .file-name {
     white-space: normal;
   }
+}
+
+.settings-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--input-bg);
+  color: var(--text);
+  padding: 14px 16px;
+  outline: none;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.settings-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.settings-help {
+  margin-top: 10px;
 }

@@ -1,4 +1,3 @@
-import { useEffect, useMemo, useState } from "react";
 
 const STEP_ORDER = [
   "validate_input",
@@ -510,18 +509,6 @@ const UI = {
   }
 };
 
-function toAssetUrl(url) {
-  if (!url) {
-    return "";
-  }
-
-  if (url.startsWith("http://") || url.startsWith("https://")) {
-    return url;
-  }
-
-  return `${window.location.origin}${url}`;
-}
-
 function normalizeErrorMessage(error, fallback) {
   if (error instanceof TypeError && String(error.message).includes("Failed to fetch")) {
     return fallback;
@@ -538,35 +525,6 @@ async function parseJsonResponse(response) {
 
   const text = await response.text();
   return { error: text || `Unexpected response with status ${response.status}.` };
-}
-
-async function startWorkflow(file, t) {
-  const formData = new FormData();
-  formData.append("image", file);
-
-  const response = await fetch("/api/workflows", {
-    method: "POST",
-    body: formData
-  });
-
-  const payload = await parseJsonResponse(response);
-
-  if (!response.ok) {
-    throw new Error(payload.error || t.networkStartError);
-  }
-
-  return payload.workflow;
-}
-
-async function fetchWorkflow(workflowId, t) {
-  const response = await fetch(`/api/workflows/${workflowId}`);
-  const payload = await parseJsonResponse(response);
-
-  if (!response.ok) {
-    throw new Error(payload.error || t.networkFetchError);
-  }
-
-  return payload;
 }
 
 function readStoredValue(key, fallback) {
@@ -608,496 +566,760 @@ async function copyText(value) {
   }
 }
 
-export default function App() {
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [workflow, setWorkflow] = useState(null);
-  const [message, setMessage] = useState({ type: "info", text: UI.zh.idleMessage });
-  const [submitting, setSubmitting] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState("appearance");
-  const [language, setLanguage] = useState(() => readStoredValue("cwa-language", "zh"));
-  const [mode, setMode] = useState(() => readStoredValue("cwa-mode", "dark"));
-  const [accent, setAccent] = useState(() => readStoredValue("cwa-accent", "cyan"));
-  const [selectedAnnouncement, setSelectedAnnouncement] = useState("1.0.1");
-  const [copiedErrorKey, setCopiedErrorKey] = useState("");
 
-  const t = UI[language] || UI.zh;
+const BACKEND_UI_PATCH = {
+  zh: {
+    networkStartError: "无法启动工作流：静态页面没有拿到后端响应。请确认 API 地址配置正确，并且服务端可访问。",
+    networkFetchError: "无法获取最新工作流状态：静态页面没有连到后端。请检查 API 地址、服务端状态或浏览器控制台。",
+    backend: "接口",
+    apiEndpoint: "API 地址",
+    apiEndpointHint: "GitHub Pages 部署时，请填写你后端服务的根地址，例如 https://your-api.example.com。留空时会走当前站点同源地址。",
+    apiEndpointSaved: "API 地址已更新。",
+    noApiConfigured: "当前正在使用同源 API。若页面部署在 GitHub Pages，请在设置里填写后端地址。"
+  },
+  en: {
+    networkStartError: "Could not start the workflow because the static page did not receive a backend response. Check the configured API endpoint and make sure the server is reachable.",
+    networkFetchError: "Could not fetch the latest workflow state because the static page could not reach the backend. Check the API endpoint, server status, or browser console.",
+    backend: "Backend",
+    apiEndpoint: "API Endpoint",
+    apiEndpointHint: "When deploying on GitHub Pages, enter the root URL of your backend service here, for example https://your-api.example.com. Leave it empty to use the current origin.",
+    apiEndpointSaved: "API endpoint updated.",
+    noApiConfigured: "The app is currently using same-origin API calls. If this page is on GitHub Pages, set your backend URL in Settings."
+  },
+  ja: {
+    networkStartError: "静的ページがバックエンド応答を受け取れず、ワークフローを開始できませんでした。API アドレス設定とサーバー到達性を確認してください。",
+    networkFetchError: "静的ページがバックエンドに接続できず、最新のワークフロー状態を取得できませんでした。API アドレス、サーバー状態、ブラウザコンソールを確認してください。",
+    backend: "バックエンド",
+    apiEndpoint: "API アドレス",
+    apiEndpointHint: "GitHub Pages に配置する場合は、ここにバックエンドのルート URL を入力してください。例: https://your-api.example.com。空欄のままなら現在のオリジンを使います。",
+    apiEndpointSaved: "API アドレスを更新しました。",
+    noApiConfigured: "現在は同一オリジンの API を使用しています。GitHub Pages 配置時は設定でバックエンド URL を指定してください。"
+  },
+  ru: {
+    networkStartError: "Не удалось запустить workflow: статическая страница не получила ответ от бэкенда. Проверьте настроенный API endpoint и доступность сервера.",
+    networkFetchError: "Не удалось получить актуальное состояние workflow: статическая страница не смогла подключиться к бэкенду. Проверьте API endpoint, состояние сервера и консоль браузера.",
+    backend: "Бэкенд",
+    apiEndpoint: "API endpoint",
+    apiEndpointHint: "При размещении на GitHub Pages укажите здесь корневой URL вашего бэкенда, например https://your-api.example.com. Оставьте пустым, чтобы использовать текущий origin.",
+    apiEndpointSaved: "API endpoint обновлен.",
+    noApiConfigured: "Сейчас приложение использует same-origin API. Если страница размещена на GitHub Pages, задайте URL бэкенда в настройках."
+  }
+};
 
-  useEffect(() => {
-    document.documentElement.dataset.mode = mode;
-    writeStoredValue("cwa-mode", mode);
-  }, [mode]);
+for (const [languageCode, patch] of Object.entries(BACKEND_UI_PATCH)) {
+  Object.assign(UI[languageCode], patch);
+}
 
-  useEffect(() => {
-    document.documentElement.dataset.accent = accent;
-    writeStoredValue("cwa-accent", accent);
-  }, [accent]);
+const root = document.getElementById("app");
+const state = {
+  selectedFile: null,
+  workflow: null,
+  message: { type: "info", text: (UI[readStoredValue("cwa-language", "zh")] || UI.zh).idleMessage },
+  submitting: false,
+  settingsOpen: false,
+  settingsTab: "appearance",
+  language: readStoredValue("cwa-language", "zh"),
+  mode: readStoredValue("cwa-mode", "dark"),
+  accent: readStoredValue("cwa-accent", "cyan"),
+  apiBase: readStoredValue("cwa-api-base", defaultApiBase()),
+  selectedAnnouncement: "1.0.1",
+  copiedErrorKey: "",
+  copyPayloads: {}
+};
 
-  useEffect(() => {
-    writeStoredValue("cwa-language", language);
-    setMessage((current) => {
-      if (!current?.text || current.text === UI.zh.idleMessage || current.text === UI.en.idleMessage) {
-        return { type: "info", text: (UI[language] || UI.zh).idleMessage };
-      }
-      return current;
-    });
-  }, [language]);
+let pollTimer = null;
 
-  useEffect(() => {
-    if (!workflow?.id) {
-      return undefined;
+function defaultApiBase() {
+  const { hostname, origin, port } = window.location;
+
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    if (port === "5173") {
+      return "http://localhost:3001";
     }
 
-    if (workflow.status === "completed" || workflow.status === "failed") {
-      return undefined;
-    }
+    return origin;
+  }
 
-    const timer = setInterval(async () => {
-      try {
-        const latest = await fetchWorkflow(workflow.id, t);
-        setWorkflow(latest);
+  return "";
+}
 
-        if (latest.status === "completed") {
-          setMessage({ type: "success", text: language === "zh" ? "工作流已完成。" : t.statuses.success });
-        }
+function getText() {
+  return UI[state.language] || UI.zh;
+}
 
-        if (latest.status === "failed") {
-          setMessage({ type: "error", text: latest.error || t.networkFetchError });
-        }
-      } catch (error) {
-        setMessage({
-          type: "error",
-          text: normalizeErrorMessage(error, t.networkFetchError)
-        });
+function setMessage(type, text) {
+  state.message = { type, text };
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildApiUrl(pathname) {
+  if (!pathname) {
+    return "";
+  }
+
+  if (/^https?:\/\//.test(pathname)) {
+    return pathname;
+  }
+
+  const base = (state.apiBase || "").trim().replace(/\/+$/, "");
+  if (!base) {
+    return pathname;
+  }
+
+  return `${base}${pathname}`;
+}
+
+function toAssetUrl(url) {
+  if (!url) {
+    return "";
+  }
+
+  if (/^https?:\/\//.test(url)) {
+    return url;
+  }
+
+  return buildApiUrl(url);
+}
+
+async function startWorkflow(file, t) {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  const response = await fetch(buildApiUrl("/api/workflows"), {
+    method: "POST",
+    body: formData
+  });
+
+  const payload = await parseJsonResponse(response);
+  if (!response.ok) {
+    throw new Error(payload.error || t.networkStartError);
+  }
+
+  return payload.workflow;
+}
+
+async function fetchWorkflow(workflowId, t) {
+  const response = await fetch(buildApiUrl(`/api/workflows/${workflowId}`));
+  const payload = await parseJsonResponse(response);
+
+  if (!response.ok) {
+    throw new Error(payload.error || t.networkFetchError);
+  }
+
+  return payload;
+}
+
+function applyAppearance() {
+  document.documentElement.dataset.mode = state.mode;
+  document.documentElement.dataset.accent = state.accent;
+  writeStoredValue("cwa-mode", state.mode);
+  writeStoredValue("cwa-accent", state.accent);
+  writeStoredValue("cwa-language", state.language);
+  writeStoredValue("cwa-api-base", state.apiBase);
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    window.clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+function startPollingIfNeeded() {
+  stopPolling();
+
+  if (!state.workflow?.id) {
+    return;
+  }
+
+  if (state.workflow.status === "completed" || state.workflow.status === "failed") {
+    return;
+  }
+
+  pollTimer = window.setInterval(async () => {
+    const t = getText();
+
+    try {
+      const latest = await fetchWorkflow(state.workflow.id, t);
+      state.workflow = latest;
+
+      if (latest.status === "completed") {
+        setMessage("success", state.language === "zh" ? "工作流已完成。" : t.statuses.success);
+      } else if (latest.status === "failed") {
+        setMessage("error", latest.error || t.networkFetchError);
       }
-    }, POLL_INTERVAL_MS);
 
-    return () => clearInterval(timer);
-  }, [workflow?.id, workflow?.status, t, language]);
+      renderApp();
+      startPollingIfNeeded();
+    } catch (error) {
+      setMessage("error", normalizeErrorMessage(error, t.networkFetchError));
+      renderApp();
+    }
+  }, POLL_INTERVAL_MS);
+}
 
+function getOutputCards(t) {
+  const outputs = state.workflow?.outputs;
+
+  if (!outputs) {
+    return [];
+  }
+
+  return [
+    {
+      title: state.language === "zh" ? "抠图结果" : state.language === "ja" ? "切り抜き結果" : state.language === "ru" ? "Вырезание" : "Cutout",
+      url: outputs.cutout
+    },
+    { title: t.stepLabels.expression_thinking, url: outputs.expressions?.thinking },
+    { title: t.stepLabels.expression_surprise, url: outputs.expressions?.surprise },
+    { title: t.stepLabels.expression_angry, url: outputs.expressions?.angry },
+    { title: t.stepLabels.cg_01, url: outputs.cg_outputs?.[0] },
+    { title: t.stepLabels.cg_02, url: outputs.cg_outputs?.[1] }
+  ].filter((item) => Boolean(item.url));
+}
+
+function renderDebugPanel(entries, openByDefault = false) {
+  if (!entries.length) {
+    return "";
+  }
+
+  return `
+    <details class="debug-panel" ${openByDefault ? "open" : ""}>
+      <summary>${escapeHtml(getText().debugDetails)}</summary>
+      <div class="debug-grid">
+        ${entries
+          .map(
+            ([key, value]) => `
+              <div class="debug-row">
+                <span>${escapeHtml(key)}</span>
+                <code>${escapeHtml(String(value))}</code>
+              </div>`
+          )
+          .join("")}
+      </div>
+    </details>
+  `;
+}
+
+function renderSettings(t, selectedAnnouncementData) {
+  if (!state.settingsOpen) {
+    return "";
+  }
+
+  const tabs = [
+    ["appearance", t.appearance],
+    ["language", t.language],
+    ["backend", t.backend],
+    ["announcements", t.announcements],
+    ["about", t.about]
+  ];
+
+  return `
+    <div class="settings-overlay" data-action="close-settings-overlay">
+      <section class="settings-modal panel glass" onclick="event.stopPropagation()">
+        <div class="settings-header">
+          <div>
+            <h2>${escapeHtml(t.settingsTitle)}</h2>
+          </div>
+          <button type="button" class="icon-button" data-action="close-settings">×</button>
+        </div>
+
+        <div class="settings-layout">
+          <nav class="settings-nav">
+            ${tabs
+              .map(
+                ([tabId, label]) => `
+                  <button
+                    type="button"
+                    class="${tabId === state.settingsTab ? "nav-item active" : "nav-item"}"
+                    data-action="set-tab"
+                    data-tab="${tabId}"
+                  >
+                    ${escapeHtml(label)}
+                  </button>`
+              )
+              .join("")}
+          </nav>
+
+          <div class="settings-content">
+            ${state.settingsTab === "appearance"
+              ? `
+                <div class="settings-section">
+                  <div class="settings-block">
+                    <h3>${escapeHtml(t.mode)}</h3>
+                    <div class="choice-row">
+                      <button type="button" class="${state.mode === "light" ? "choice active" : "choice"}" data-action="set-mode" data-mode="light">${escapeHtml(t.light)}</button>
+                      <button type="button" class="${state.mode === "dark" ? "choice active" : "choice"}" data-action="set-mode" data-mode="dark">${escapeHtml(t.dark)}</button>
+                    </div>
+                  </div>
+                  <div class="settings-block">
+                    <h3>${escapeHtml(t.colorStyle)}</h3>
+                    <div class="palette-grid">
+                      ${COLOR_STYLES.map(
+                        (item) => `
+                          <button
+                            type="button"
+                            class="${item.id === state.accent ? `palette-chip ${item.id} active` : `palette-chip ${item.id}` }"
+                            data-action="set-accent"
+                            data-accent="${item.id}"
+                          >
+                            <span class="palette-dot"></span>
+                            <span>${escapeHtml(item.label[state.language] || item.label.zh)}</span>
+                          </button>`
+                      ).join("")}
+                    </div>
+                  </div>
+                  <div class="settings-block version-card">
+                    <h3>${escapeHtml(t.currentVersion)}</h3>
+                    <p>v${APP_VERSION}</p>
+                  </div>
+                </div>`
+              : ""}
+
+            ${state.settingsTab === "language"
+              ? `
+                <div class="settings-section">
+                  <div class="palette-grid language-grid">
+                    ${[
+                      ["zh", "中文"],
+                      ["ja", "日本語"],
+                      ["en", "English"],
+                      ["ru", "Русский"]
+                    ]
+                      .map(
+                        ([langId, label]) => `
+                          <button
+                            type="button"
+                            class="${langId === state.language ? "choice active" : "choice"}"
+                            data-action="set-language"
+                            data-language="${langId}"
+                          >
+                            ${label}
+                          </button>`
+                      )
+                      .join("")}
+                  </div>
+                </div>`
+              : ""}
+
+            ${state.settingsTab === "backend"
+              ? `
+                <div class="settings-section">
+                  <div class="settings-block">
+                    <h3>${escapeHtml(t.apiEndpoint)}</h3>
+                    <input id="api-base-input" class="settings-input" type="text" value="${escapeHtml(state.apiBase)}" placeholder="https://your-api.example.com" />
+                    <p class="settings-help">${escapeHtml(t.apiEndpointHint)}</p>
+                    <p class="settings-help muted">${escapeHtml(state.apiBase ? state.apiBase : t.noApiConfigured)}</p>
+                  </div>
+                </div>`
+              : ""}
+
+            ${state.settingsTab === "announcements"
+              ? `
+                <div class="settings-section announcements-layout">
+                  <div class="announcement-list">
+                    ${ANNOUNCEMENTS.map(
+                      (entry) => `
+                        <button
+                          type="button"
+                          class="${entry.version === state.selectedAnnouncement ? "announcement-item active" : "announcement-item"}"
+                          data-action="set-announcement"
+                          data-announcement="${entry.version}"
+                        >
+                          <span>${escapeHtml(entry.date)}</span>
+                          <strong>${escapeHtml(entry.version)}</strong>
+                          <small>${escapeHtml(entry.summary[state.language] || entry.summary.zh)}</small>
+                        </button>`
+                    ).join("")}
+                  </div>
+                  <article class="announcement-detail">
+                    <h3>${escapeHtml(selectedAnnouncementData.title[state.language] || selectedAnnouncementData.title.zh)}</h3>
+                    <p>${escapeHtml(selectedAnnouncementData.summary[state.language] || selectedAnnouncementData.summary.zh)}</p>
+                    <ul>
+                      ${(selectedAnnouncementData.bullets[state.language] || selectedAnnouncementData.bullets.zh)
+                        .map((bullet) => `<li>${escapeHtml(bullet)}</li>`)
+                        .join("")}
+                    </ul>
+                  </article>
+                </div>`
+              : ""}
+
+            ${state.settingsTab === "about"
+              ? `
+                <div class="settings-section">
+                  <div class="about-card">
+                    <h3>${escapeHtml(t.authorLabel)}: ${escapeHtml(t.authorName)}</h3>
+                    <p>${escapeHtml(t.aboutText)}</p>
+                    <div class="choice-row about-links">
+                      <a class="choice link-button" href="${PERSONAL_GITHUB_URL}" target="_blank" rel="noreferrer">${escapeHtml(t.personalGithub)}</a>
+                      <a class="choice link-button" href="${PROJECT_GITHUB_URL}" target="_blank" rel="noreferrer">${escapeHtml(t.projectGithub)}</a>
+                    </div>
+                  </div>
+                </div>`
+              : ""}
+          </div>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function renderApp() {
+  applyAppearance();
+
+  const t = getText();
+  const workflow = state.workflow;
   const outputs = workflow?.outputs;
+  const outputCards = getOutputCards(t);
+  const selectedAnnouncementData =
+    ANNOUNCEMENTS.find((entry) => entry.version === state.selectedAnnouncement) || ANNOUNCEMENTS[0];
 
-  const outputCards = useMemo(() => {
-    if (!outputs) {
-      return [];
+  const copyPayloads = {};
+  if (workflow?.error) {
+    copyPayloads.workflow = workflow.error;
+  }
+
+  const stepsMarkup = workflow
+    ? STEP_ORDER.map((stepName) => {
+        const step = workflow.steps?.[stepName] || { status: "queued" };
+        const debugEntries = renderDebugEntries(step.debug);
+        const copyKey = `step-${stepName}`;
+        if (step.error) {
+          copyPayloads[copyKey] = step.error;
+        }
+
+        return `
+          <li class="step ${escapeHtml(step.status)}">
+            <div class="step-main">
+              <div>
+                <strong>${escapeHtml(t.stepLabels[stepName] || stepName)}</strong>
+                <p>${escapeHtml(step.provider || "-")}</p>
+              </div>
+              <span>${escapeHtml(t.statuses[step.status] || step.status)}</span>
+            </div>
+            ${step.output_url ? `<a class="step-link" href="${escapeHtml(toAssetUrl(step.output_url))}" target="_blank" rel="noreferrer">${escapeHtml(t.openFile)}</a>` : ""}
+            ${step.error ? `
+              <div class="error-stack">
+                <div class="error-toolbar">
+                  <button type="button" class="copy-button" data-action="copy-error" data-copy-key="${copyKey}">
+                    ${escapeHtml(state.copiedErrorKey === copyKey ? t.copied : t.copyError)}
+                  </button>
+                </div>
+                <pre class="step-error">${escapeHtml(step.error)}</pre>
+              </div>` : ""}
+            ${renderDebugPanel(debugEntries)}
+          </li>`;
+      }).join("")
+    : "";
+
+  state.copyPayloads = copyPayloads;
+
+  root.innerHTML = `
+    <div class="app-shell">
+      <main class="page">
+        <header class="topbar panel glass">
+          <div class="brand-block">
+            <div>
+              <h1>${escapeHtml(t.appName)}</h1>
+              <p>${escapeHtml(t.heroText)}</p>
+            </div>
+          </div>
+          <div class="topbar-actions">
+            <span class="version-pill">v${APP_VERSION}</span>
+            <button type="button" class="secondary-button" data-action="open-settings">${escapeHtml(t.settings)}</button>
+          </div>
+        </header>
+
+        <section class="hero-grid">
+          <article class="panel hero-card">
+            <div class="hero-copy">
+              <h2>${escapeHtml(t.heroTitle)}</h2>
+              <p>${escapeHtml(t.heroText)}</p>
+              <div class="hero-metrics">
+                <div>
+                  <strong>6</strong>
+                  <span>${escapeHtml(state.language === "zh" ? "目标输出" : state.language === "ja" ? "出力数" : state.language === "ru" ? "выходов" : "outputs")}</span>
+                </div>
+                <div>
+                  <strong>rembg</strong>
+                  <span>${escapeHtml(state.language === "zh" ? "本地抠图" : state.language === "ja" ? "ローカル切り抜き" : state.language === "ru" ? "локальный cutout" : "local cutout")}</span>
+                </div>
+                <div>
+                  <strong>AI</strong>
+                  <span>${escapeHtml(state.language === "zh" ? "表情与 CG" : state.language === "ja" ? "表情と CG" : state.language === "ru" ? "выражения и CG" : "expressions + CG")}</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel upload-card">
+            <h2>${escapeHtml(t.uploadTitle)}</h2>
+            <p>${escapeHtml(t.uploadText)}</p>
+            <form class="upload-form" id="workflow-form">
+              <div class="field-group">
+                <label for="image-input">${escapeHtml(t.chooseImage)}</label>
+                <div class="file-picker">
+                  <label class="file-trigger" for="image-input">${escapeHtml(t.chooseFile)}</label>
+                  <span class="file-name">${escapeHtml(state.selectedFile ? state.selectedFile.name : t.chooseHint)}</span>
+                  <input id="image-input" class="file-input" type="file" accept="image/png,image/jpeg,image/webp" ${state.submitting ? "disabled" : ""} />
+                </div>
+              </div>
+              <button type="submit" ${state.submitting ? "disabled" : ""}>${escapeHtml(state.submitting ? t.starting : t.startWorkflow)}</button>
+            </form>
+            <p class="message ${escapeHtml(state.message.type)}">${escapeHtml(state.message.text)}</p>
+          </article>
+        </section>
+
+        <section class="content-grid">
+          <article class="panel workflow-panel">
+            <div class="panel-heading">
+              <div>
+                <h2>${escapeHtml(t.workflowTitle)}</h2>
+              </div>
+              ${workflow ? `<span class="status-chip ${escapeHtml(workflow.status)}">${escapeHtml(t.statuses[workflow.status] || workflow.status)}</span>` : ""}
+            </div>
+
+            ${!workflow ? `<p class="muted">${escapeHtml(t.noWorkflow)}</p>` : `
+              <div class="meta-grid">
+                <div class="meta-card">
+                  <span>Workflow ID</span>
+                  <strong>${escapeHtml(workflow.id)}</strong>
+                </div>
+                <div class="meta-card">
+                  <span>${escapeHtml(t.sourceInfo)}</span>
+                  <strong>${escapeHtml(workflow.source_image?.original_name || "-")}</strong>
+                </div>
+                <div class="meta-card">
+                  <span>${escapeHtml(t.providerInfo)}</span>
+                  <strong>${escapeHtml(workflow.current_step || "-")}</strong>
+                </div>
+              </div>
+              <ul class="steps">${stepsMarkup}</ul>`}
+          </article>
+
+          <article class="panel outputs-panel">
+            <div class="panel-heading">
+              <div>
+                <h2>${escapeHtml(t.outputsTitle)}</h2>
+              </div>
+            </div>
+
+            <p class="muted strong-muted">${escapeHtml(t.outputsHint)}</p>
+
+            ${outputs?.providers ? `
+              <div class="provider-row">
+                <span class="provider-pill">${escapeHtml(t.providerCutout)}: ${escapeHtml(outputs.providers.remove_background || "-")}</span>
+                <span class="provider-pill">${escapeHtml(t.providerExpressions)}: ${escapeHtml(outputs.providers.expressions || "-")}</span>
+                <span class="provider-pill">${escapeHtml(t.providerCg)}: ${escapeHtml(outputs.providers.cg || "-")}</span>
+              </div>` : ""}
+
+            ${outputs?.manifest ? `
+              <p class="manifest-link">
+                ${escapeHtml(t.manifest)}: <a href="${escapeHtml(toAssetUrl(outputs.manifest))}" target="_blank" rel="noreferrer">${escapeHtml(t.openManifest)}</a>
+              </p>` : ""}
+
+            ${workflow?.error ? `
+              <section class="error-box">
+                <h3>${escapeHtml(t.latestError)}</h3>
+                <div class="error-toolbar">
+                  <button type="button" class="copy-button" data-action="copy-error" data-copy-key="workflow">
+                    ${escapeHtml(state.copiedErrorKey === "workflow" ? t.copied : t.copyError)}
+                  </button>
+                </div>
+                <pre>${escapeHtml(workflow.error)}</pre>
+                ${renderDebugPanel(renderDebugEntries(workflow.error_details), true)}
+              </section>` : ""}
+
+            ${outputCards.length === 0 ? `<p class="muted">${escapeHtml(t.noOutputs)}</p>` : ""}
+            <div class="grid">
+              ${outputCards
+                .map(
+                  (card) => `
+                    <article class="output-card">
+                      <div class="output-card-header">
+                        <h3>${escapeHtml(card.title)}</h3>
+                        <a href="${escapeHtml(toAssetUrl(card.url))}" target="_blank" rel="noreferrer">${escapeHtml(t.openFile)}</a>
+                      </div>
+                      <img src="${escapeHtml(toAssetUrl(card.url))}" alt="${escapeHtml(card.title)}" />
+                    </article>`
+                )
+                .join("")}
+            </div>
+          </article>
+        </section>
+
+        <footer class="footer">${escapeHtml(t.footer)}</footer>
+      </main>
+      ${renderSettings(t, selectedAnnouncementData)}
+    </div>
+  `;
+}
+
+async function handleSubmit(event) {
+  event.preventDefault();
+
+  if (!state.selectedFile) {
+    setMessage(
+      "error",
+      state.language === "zh"
+        ? "请先选择一张图片。"
+        : state.language === "ja"
+          ? "先に画像を選択してください。"
+          : state.language === "ru"
+            ? "Сначала выберите изображение."
+            : "Please choose an image first."
+    );
+    renderApp();
+    return;
+  }
+
+  const t = getText();
+
+  try {
+    state.submitting = true;
+    state.workflow = null;
+    setMessage(
+      "info",
+      state.language === "zh"
+        ? "正在启动工作流..."
+        : state.language === "ja"
+          ? "ワークフローを開始しています..."
+          : state.language === "ru"
+            ? "Workflow запускается..."
+            : "Starting workflow..."
+    );
+    renderApp();
+
+    const created = await startWorkflow(state.selectedFile, t);
+    state.workflow = created;
+    setMessage(
+      "info",
+      state.language === "zh"
+        ? "工作流已启动，结果会随步骤即时刷新。"
+        : state.language === "ja"
+          ? "ワークフローを開始しました。各ステップ結果は即時更新されます。"
+          : state.language === "ru"
+            ? "Workflow запущен. Результаты будут появляться по мере завершения шагов."
+            : "Workflow started. Results will appear as soon as each step finishes."
+    );
+    renderApp();
+    startPollingIfNeeded();
+  } catch (error) {
+    setMessage("error", normalizeErrorMessage(error, t.networkStartError));
+    renderApp();
+  } finally {
+    state.submitting = false;
+    renderApp();
+  }
+}
+
+root.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-action]");
+  if (!button) {
+    return;
+  }
+
+  const action = button.dataset.action;
+
+  if (action === "open-settings") {
+    state.settingsOpen = true;
+    renderApp();
+    return;
+  }
+
+  if (action === "close-settings" || action === "close-settings-overlay") {
+    state.settingsOpen = false;
+    renderApp();
+    return;
+  }
+
+  if (action === "set-tab") {
+    state.settingsTab = button.dataset.tab || "appearance";
+    renderApp();
+    return;
+  }
+
+  if (action === "set-mode") {
+    state.mode = button.dataset.mode || "dark";
+    renderApp();
+    return;
+  }
+
+  if (action === "set-accent") {
+    state.accent = button.dataset.accent || "cyan";
+    renderApp();
+    return;
+  }
+
+  if (action === "set-language") {
+    state.language = button.dataset.language || "zh";
+    if (!state.message?.text || Object.values(UI).some((entry) => entry.idleMessage === state.message.text)) {
+      setMessage("info", getText().idleMessage);
+    }
+    renderApp();
+    return;
+  }
+
+  if (action === "set-announcement") {
+    state.selectedAnnouncement = button.dataset.announcement || state.selectedAnnouncement;
+    renderApp();
+    return;
+  }
+
+  if (action === "copy-error") {
+    const copyKey = button.dataset.copyKey;
+    const payload = state.copyPayloads[copyKey];
+    if (!payload) {
+      return;
     }
 
-    return [
-      { title: language === "zh" ? "抠图结果" : language === "ja" ? "切り抜き結果" : language === "ru" ? "Вырезание" : "Cutout", url: outputs.cutout },
-      { title: t.stepLabels.expression_thinking, url: outputs.expressions?.thinking },
-      { title: t.stepLabels.expression_surprise, url: outputs.expressions?.surprise },
-      { title: t.stepLabels.expression_angry, url: outputs.expressions?.angry },
-      { title: t.stepLabels.cg_01, url: outputs.cg_outputs?.[0] },
-      { title: t.stepLabels.cg_02, url: outputs.cg_outputs?.[1] }
-    ].filter((item) => Boolean(item.url));
-  }, [outputs, language, t.stepLabels]);
-
-  const selectedAnnouncementData = ANNOUNCEMENTS.find((entry) => entry.version === selectedAnnouncement) || ANNOUNCEMENTS[0];
-
-  async function handleCopyError(copyKey, text) {
-    const ok = await copyText(text);
+    const ok = await copyText(payload);
     if (!ok) {
       return;
     }
 
-    setCopiedErrorKey(copyKey);
+    state.copiedErrorKey = copyKey;
+    renderApp();
     window.setTimeout(() => {
-      setCopiedErrorKey((current) => (current === copyKey ? "" : current));
+      if (state.copiedErrorKey === copyKey) {
+        state.copiedErrorKey = "";
+        renderApp();
+      }
     }, 1600);
   }
+});
 
-  async function handleSubmit(event) {
-    event.preventDefault();
+root.addEventListener("change", (event) => {
+  const target = event.target;
 
-    if (!selectedFile) {
-      setMessage({
-        type: "error",
-        text: language === "zh" ? "请先选择一张图片。" : language === "ja" ? "先に画像を選択してください。" : language === "ru" ? "Сначала выберите изображение." : "Please choose an image first."
-      });
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      setWorkflow(null);
-      setMessage({
-        type: "info",
-        text: language === "zh" ? "正在启动工作流..." : language === "ja" ? "ワークフローを開始しています..." : language === "ru" ? "Workflow запускается..." : "Starting workflow..."
-      });
-      const created = await startWorkflow(selectedFile, t);
-      setWorkflow(created);
-      setMessage({
-        type: "info",
-        text: language === "zh" ? "工作流已启动，结果会随步骤即时刷新。" : language === "ja" ? "ワークフローを開始しました。各ステップ結果は即時更新されます。" : language === "ru" ? "Workflow запущен. Результаты будут появляться по мере завершения шагов." : "Workflow started. Results will appear as soon as each step finishes."
-      });
-    } catch (error) {
-      setMessage({
-        type: "error",
-        text: normalizeErrorMessage(error, t.networkStartError)
-      });
-    } finally {
-      setSubmitting(false);
-    }
+  if (target.id === "image-input") {
+    state.selectedFile = target.files?.[0] || null;
+    renderApp();
+    return;
   }
 
-  return (
-    <div className="app-shell">
-      <div className="ambient ambient-a" />
-      <div className="ambient ambient-b" />
-      <main className="page">
-        <header className="topbar panel glass">
-          <div className="brand-block">
-            <div>
-              <h1>{t.appName}</h1>
-              <p>{t.heroText}</p>
-            </div>
-          </div>
-          <div className="topbar-actions">
-            <span className="version-pill">v{APP_VERSION}</span>
-            <button type="button" className="secondary-button" onClick={() => setSettingsOpen(true)}>
-              {t.settings}
-            </button>
-          </div>
-        </header>
+  if (target.id === "api-base-input") {
+    state.apiBase = target.value.trim();
+    writeStoredValue("cwa-api-base", state.apiBase);
+    setMessage("info", getText().apiEndpointSaved);
+    renderApp();
+  }
+});
 
-        <section className="hero-grid">
-          <article className="panel hero-card">
-            <div className="hero-copy">
-              <h2>{t.heroTitle}</h2>
-              <p>{t.heroText}</p>
-              <div className="hero-metrics">
-                <div>
-                  <strong>6</strong>
-                  <span>{language === "zh" ? "目标输出" : language === "ja" ? "出力数" : language === "ru" ? "выходов" : "outputs"}</span>
-                </div>
-                <div>
-                  <strong>rembg</strong>
-                  <span>{language === "zh" ? "本地抠图" : language === "ja" ? "ローカル切り抜き" : language === "ru" ? "локальный cutout" : "local cutout"}</span>
-                </div>
-                <div>
-                  <strong>AI</strong>
-                  <span>{language === "zh" ? "表情与 CG" : language === "ja" ? "表情と CG" : language === "ru" ? "выражения и CG" : "expressions + CG"}</span>
-                </div>
-              </div>
-            </div>
-          </article>
+root.addEventListener("submit", (event) => {
+  if (event.target?.id === "workflow-form") {
+    handleSubmit(event);
+  }
+});
 
-          <article className="panel upload-card">
-            <h2>{t.uploadTitle}</h2>
-            <p>{t.uploadText}</p>
-            <form className="upload-form" onSubmit={handleSubmit}>
-              <div className="field-group">
-                <label htmlFor="image">{t.chooseImage}</label>
-                <div className="file-picker">
-                  <label className="file-trigger" htmlFor="image">
-                    {t.chooseFile}
-                  </label>
-                  <span className="file-name">{selectedFile ? selectedFile.name : t.chooseHint}</span>
-                  <input
-                    id="image"
-                    className="file-input"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
-                    disabled={submitting}
-                  />
-                </div>
-              </div>
-              <button type="submit" disabled={submitting}>
-                {submitting ? t.starting : t.startWorkflow}
-              </button>
-            </form>
-            <p className={`message ${message.type}`}>{message.text}</p>
-          </article>
-        </section>
-
-        <section className="content-grid">
-          <article className="panel workflow-panel">
-            <div className="panel-heading">
-              <div>
-                <h2>{t.workflowTitle}</h2>
-              </div>
-              {workflow ? <span className={`status-chip ${workflow.status}`}>{t.statuses[workflow.status] || workflow.status}</span> : null}
-            </div>
-
-            {!workflow ? <p className="muted">{t.noWorkflow}</p> : null}
-            {workflow ? (
-              <>
-                <div className="meta-grid">
-                  <div className="meta-card">
-                    <span>Workflow ID</span>
-                    <strong>{workflow.id}</strong>
-                  </div>
-                  <div className="meta-card">
-                    <span>{t.sourceInfo}</span>
-                    <strong>{workflow.source_image?.original_name || "-"}</strong>
-                  </div>
-                  <div className="meta-card">
-                    <span>{t.providerInfo}</span>
-                    <strong>{workflow.current_step || "-"}</strong>
-                  </div>
-                </div>
-
-                <ul className="steps">
-                  {STEP_ORDER.map((stepName) => {
-                    const step = workflow.steps?.[stepName] || { status: "queued" };
-                    const debugEntries = renderDebugEntries(step.debug);
-
-                    return (
-                      <li className={`step ${step.status}`} key={stepName}>
-                        <div className="step-main">
-                          <div>
-                            <strong>{t.stepLabels[stepName] || stepName}</strong>
-                            <p>{step.provider || "-"}</p>
-                          </div>
-                          <span>{t.statuses[step.status] || step.status}</span>
-                        </div>
-                        {step.output_url ? (
-                          <a className="step-link" href={toAssetUrl(step.output_url)} target="_blank" rel="noreferrer">
-                            {t.openFile}
-                          </a>
-                        ) : null}
-                        {step.error ? (
-                          <div className="error-stack">
-                            <div className="error-toolbar">
-                              <button
-                                type="button"
-                                className="copy-button"
-                                onClick={() => handleCopyError(`step-${stepName}`, step.error)}
-                              >
-                                {copiedErrorKey === `step-${stepName}` ? t.copied : t.copyError}
-                              </button>
-                            </div>
-                            <pre className="step-error">{step.error}</pre>
-                          </div>
-                        ) : null}
-                        {debugEntries.length ? (
-                          <details className="debug-panel">
-                            <summary>{t.debugDetails}</summary>
-                            <div className="debug-grid">
-                              {debugEntries.map(([key, value]) => (
-                                <div key={`${stepName}-${key}`} className="debug-row">
-                                  <span>{key}</span>
-                                  <code>{String(value)}</code>
-                                </div>
-                              ))}
-                            </div>
-                          </details>
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            ) : null}
-          </article>
-
-          <article className="panel outputs-panel">
-            <div className="panel-heading">
-              <div>
-                <h2>{t.outputsTitle}</h2>
-              </div>
-            </div>
-
-            <p className="muted strong-muted">{t.outputsHint}</p>
-
-            {outputs?.providers ? (
-              <div className="provider-row">
-                <span className="provider-pill">{t.providerCutout}: {outputs.providers.remove_background || "-"}</span>
-                <span className="provider-pill">{t.providerExpressions}: {outputs.providers.expressions || "-"}</span>
-                <span className="provider-pill">{t.providerCg}: {outputs.providers.cg || "-"}</span>
-              </div>
-            ) : null}
-
-            {outputs?.manifest ? (
-              <p className="manifest-link">
-                {t.manifest}: {" "}
-                <a href={toAssetUrl(outputs.manifest)} target="_blank" rel="noreferrer">
-                  {t.openManifest}
-                </a>
-              </p>
-            ) : null}
-
-            {workflow?.error ? (
-              <section className="error-box">
-                <h3>{t.latestError}</h3>
-                <div className="error-toolbar">
-                  <button
-                    type="button"
-                    className="copy-button"
-                    onClick={() => handleCopyError("workflow", workflow.error)}
-                  >
-                    {copiedErrorKey === "workflow" ? t.copied : t.copyError}
-                  </button>
-                </div>
-                <pre>{workflow.error}</pre>
-                {renderDebugEntries(workflow.error_details).length ? (
-                  <details className="debug-panel" open>
-                    <summary>{t.debugDetails}</summary>
-                    <div className="debug-grid">
-                      {renderDebugEntries(workflow.error_details).map(([key, value]) => (
-                        <div key={key} className="debug-row">
-                          <span>{key}</span>
-                          <code>{String(value)}</code>
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                ) : null}
-              </section>
-            ) : null}
-
-            {outputCards.length === 0 ? <p className="muted">{t.noOutputs}</p> : null}
-            <div className="grid">
-              {outputCards.map((card) => (
-                <article className="output-card" key={card.title}>
-                  <div className="output-card-header">
-                    <h3>{card.title}</h3>
-                    <a href={toAssetUrl(card.url)} target="_blank" rel="noreferrer">
-                      {t.openFile}
-                    </a>
-                  </div>
-                  <img src={toAssetUrl(card.url)} alt={card.title} />
-                </article>
-              ))}
-            </div>
-          </article>
-        </section>
-
-        <footer className="footer">{t.footer}</footer>
-      </main>
-
-      {settingsOpen ? (
-        <div className="settings-overlay" onClick={() => setSettingsOpen(false)}>
-          <section className="settings-modal panel glass" onClick={(event) => event.stopPropagation()}>
-            <div className="settings-header">
-              <div>
-                <h2>{t.settingsTitle}</h2>
-              </div>
-              <button type="button" className="icon-button" onClick={() => setSettingsOpen(false)}>
-                ×
-              </button>
-            </div>
-
-            <div className="settings-layout">
-              <nav className="settings-nav">
-                {[
-                  ["appearance", t.appearance],
-                  ["language", t.language],
-                  ["announcements", t.announcements],
-                  ["about", t.about]
-                ].map(([tabId, label]) => (
-                  <button
-                    key={tabId}
-                    type="button"
-                    className={tabId === settingsTab ? "nav-item active" : "nav-item"}
-                    onClick={() => setSettingsTab(tabId)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </nav>
-
-              <div className="settings-content">
-                {settingsTab === "appearance" ? (
-                  <div className="settings-section">
-                    <div className="settings-block">
-                      <h3>{t.mode}</h3>
-                      <div className="choice-row">
-                        <button type="button" className={mode === "light" ? "choice active" : "choice"} onClick={() => setMode("light")}>{t.light}</button>
-                        <button type="button" className={mode === "dark" ? "choice active" : "choice"} onClick={() => setMode("dark")}>{t.dark}</button>
-                      </div>
-                    </div>
-                    <div className="settings-block">
-                      <h3>{t.colorStyle}</h3>
-                      <div className="palette-grid">
-                        {COLOR_STYLES.map((item) => (
-                          <button
-                            key={item.id}
-                            type="button"
-                            className={item.id === accent ? `palette-chip ${item.id} active` : `palette-chip ${item.id}`}
-                            onClick={() => setAccent(item.id)}
-                          >
-                            <span className="palette-dot" />
-                            <span>{item.label[language] || item.label.zh}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="settings-block version-card">
-                      <h3>{t.currentVersion}</h3>
-                      <p>v{APP_VERSION}</p>
-                    </div>
-                  </div>
-                ) : null}
-
-                {settingsTab === "language" ? (
-                  <div className="settings-section">
-                    <div className="palette-grid language-grid">
-                      {[
-                        ["zh", "中文"],
-                        ["ja", "日本語"],
-                        ["en", "English"],
-                        ["ru", "Русский"]
-                      ].map(([langId, label]) => (
-                        <button
-                          key={langId}
-                          type="button"
-                          className={langId === language ? "choice active" : "choice"}
-                          onClick={() => setLanguage(langId)}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                {settingsTab === "announcements" ? (
-                  <div className="settings-section announcements-layout">
-                    <div className="announcement-list">
-                      {ANNOUNCEMENTS.map((entry) => (
-                        <button
-                          key={entry.version}
-                          type="button"
-                          className={entry.version === selectedAnnouncement ? "announcement-item active" : "announcement-item"}
-                          onClick={() => setSelectedAnnouncement(entry.version)}
-                        >
-                          <span>{entry.date}</span>
-                          <strong>{entry.version}</strong>
-                          <small>{entry.summary[language] || entry.summary.zh}</small>
-                        </button>
-                      ))}
-                    </div>
-                    <article className="announcement-detail">
-                      <h3>{selectedAnnouncementData.title[language] || selectedAnnouncementData.title.zh}</h3>
-                      <p>{selectedAnnouncementData.summary[language] || selectedAnnouncementData.summary.zh}</p>
-                      <ul>
-                        {(selectedAnnouncementData.bullets[language] || selectedAnnouncementData.bullets.zh).map((bullet) => (
-                          <li key={bullet}>{bullet}</li>
-                        ))}
-                      </ul>
-                    </article>
-                  </div>
-                ) : null}
-
-                {settingsTab === "about" ? (
-                  <div className="settings-section">
-                    <div className="about-card">
-                      <h3>{t.authorLabel}: {t.authorName}</h3>
-                      <p>{t.aboutText}</p>
-                      <div className="choice-row about-links">
-                        <a className="choice link-button" href={PERSONAL_GITHUB_URL} target="_blank" rel="noreferrer">{t.personalGithub}</a>
-                        <a className="choice link-button" href={PROJECT_GITHUB_URL} target="_blank" rel="noreferrer">{t.projectGithub}</a>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </section>
-        </div>
-      ) : null}
-    </div>
-  );
-}
+applyAppearance();
+renderApp();
+startPollingIfNeeded();

@@ -31,6 +31,7 @@ module.exports = {
     process.env.REMBG_SCRIPT_PATH || path.resolve(projectRoot, "server/scripts/rembg_remove.py"),
   rembgModel: process.env.REMBG_MODEL || "isnet-anime",
   rembgTimeoutMs: parseInteger(process.env.REMBG_TIMEOUT_MS, 180000),
+  rembgMinCoverageRatio: Number.parseFloat(process.env.REMBG_MIN_COVERAGE_RATIO || "0.01"),
   platoApiKey: process.env.PLATO_API_KEY || "",
   platoBaseUrl: process.env.PLATO_BASE_URL || "https://api.bltcy.ai/v1",
   platoModel: process.env.PLATO_MODEL || "gemini-3.1-flash-image-preview",

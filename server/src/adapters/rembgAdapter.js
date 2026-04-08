@@ -26,8 +26,9 @@ async function rembgRemoveBackground({ config, sourcePath, destinationPath }) {
     throw new Error("rembg is not configured.");
   }
 
+  let stdout = "";
   try {
-    await execFileAsync(
+    const result = await execFileAsync(
       config.rembgPythonPath,
       [config.rembgScriptPath, sourcePath, destinationPath, config.rembgModel],
       {
@@ -36,6 +37,7 @@ async function rembgRemoveBackground({ config, sourcePath, destinationPath }) {
         maxBuffer: 10 * 1024 * 1024
       }
     );
+    stdout = (result.stdout || "").trim();
   } catch (error) {
     const stderr = (error.stderr || "").trim();
     throw new AppError(stderr || error.message || "rembg background removal failed.", 500, {
@@ -51,10 +53,27 @@ async function rembgRemoveBackground({ config, sourcePath, destinationPath }) {
     }, "REMBG_EXECUTION_FAILED");
   }
 
+  let metadata = {};
+  if (stdout) {
+    try {
+      metadata = JSON.parse(stdout);
+    } catch (_error) {
+      metadata = {
+        output_path: destinationPath,
+        model: config.rembgModel,
+        raw_stdout: stdout
+      };
+    }
+  }
+
   return {
     provider: "rembg",
     mime_type: "image/png",
-    output_path: destinationPath
+    output_path: metadata.output_path || destinationPath,
+    debug: {
+      model: metadata.model || config.rembgModel,
+      quality: metadata.quality || null
+    }
   };
 }
 
