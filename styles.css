@@ -41,6 +41,29 @@
   --error-code-text: #fff1f5;
 }
 
+:root[data-theme-variant="paper2gal"] {
+  --bg: #fff3f7;
+  --bg-soft: rgba(255, 252, 254, 0.94);
+  --panel: rgba(255, 251, 253, 0.96);
+  --panel-subtle: rgba(255, 255, 255, 0.82);
+  --border: rgba(245, 171, 198, 0.42);
+  --text: #70485d;
+  --muted: #b68097;
+  --shadow: 0 24px 56px rgba(232, 154, 184, 0.18);
+  --success-bg: rgba(255, 240, 246, 0.95);
+  --success-border: rgba(244, 168, 196, 0.42);
+  --warning-bg: rgba(255, 245, 235, 0.96);
+  --warning-border: rgba(255, 196, 122, 0.38);
+  --error-bg: rgba(255, 236, 242, 0.98);
+  --error-border: rgba(244, 126, 161, 0.34);
+  --accent: #ff6b9b;
+  --accent-strong: #ff4f86;
+  --accent-soft: rgba(255, 107, 155, 0.22);
+  --input-bg: rgba(255, 255, 255, 0.78);
+  --error-code-bg: rgba(255, 225, 236, 0.98);
+  --error-code-text: #93516f;
+}
+
 :root[data-accent="cyan"] {
   --accent: #38d8ff;
   --accent-strong: #1199cf;
@@ -102,6 +125,18 @@ body {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 30%), var(--bg);
 }
 
+:root[data-theme-variant="paper2gal"] body {
+  background:
+    radial-gradient(circle at 18% 20%, rgba(255, 255, 255, 0.86), transparent 28%),
+    radial-gradient(circle at 74% 30%, rgba(255, 255, 255, 0.56), transparent 24%),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(255, 250, 252, 0.95) 0 22px,
+      rgba(255, 233, 241, 0.92) 22px 44px
+    ),
+    #fff4f8;
+}
+
 a {
   color: inherit;
 }
@@ -131,6 +166,7 @@ button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
+  box-shadow: none;
 }
 
 pre,
@@ -160,6 +196,10 @@ code {
   background: var(--panel);
   box-shadow: var(--shadow);
   backdrop-filter: blur(18px);
+}
+
+:root[data-theme-variant="paper2gal"] .panel {
+  backdrop-filter: blur(14px);
 }
 
 .glass {
@@ -255,6 +295,22 @@ code {
   color: var(--text);
   box-shadow: none;
   border: 1px solid var(--border);
+}
+
+.secondary-button:disabled,
+.icon-button:disabled,
+.choice:disabled,
+.nav-item:disabled,
+.palette-chip:disabled,
+.announcement-item:disabled,
+.step-link:disabled,
+.link-button:disabled,
+.copy-button:disabled,
+.file-trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .hero-grid,
@@ -405,6 +461,10 @@ code {
   color: #39c77c;
 }
 
+.status-chip.completed_with_errors {
+  color: #c98013;
+}
+
 .status-chip.failed {
   color: #db5163;
 }
@@ -473,6 +533,11 @@ code {
 .step.failed {
   background: var(--error-bg);
   border-color: var(--error-border);
+}
+
+.step.skipped {
+  background: rgba(122, 139, 154, 0.12);
+  border-color: rgba(122, 139, 154, 0.32);
 }
 
 .step-link,
@@ -570,6 +635,11 @@ code {
   font-weight: 700;
 }
 
+:root[data-theme-variant="paper2gal"] .manifest-link a,
+:root[data-theme-variant="paper2gal"] .output-card a {
+  color: var(--accent-strong);
+}
+
 .error-box {
   padding: 16px;
   display: grid;
@@ -621,12 +691,15 @@ code {
   display: grid;
   place-items: center;
   padding: 18px;
+  pointer-events: auto;
 }
 
 .settings-modal {
   width: min(1120px, 100%);
   max-height: min(92vh, 900px);
   overflow: auto;
+  position: relative;
+  z-index: 1;
 }
 
 .settings-header {
@@ -668,6 +741,36 @@ code {
 
 .secondary-button:hover::after {
   opacity: 1;
+}
+
+:root[data-theme-variant="paper2gal"] .secondary-button,
+:root[data-theme-variant="paper2gal"] .choice,
+:root[data-theme-variant="paper2gal"] .palette-chip,
+:root[data-theme-variant="paper2gal"] .nav-item,
+:root[data-theme-variant="paper2gal"] .announcement-item,
+:root[data-theme-variant="paper2gal"] .file-trigger,
+:root[data-theme-variant="paper2gal"] .copy-button,
+:root[data-theme-variant="paper2gal"] .step-link,
+:root[data-theme-variant="paper2gal"] .link-button {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(245, 171, 198, 0.42);
+}
+
+:root[data-theme-variant="paper2gal"] button:not(.secondary-button):not(.icon-button):not(.choice):not(.palette-chip):not(.nav-item):not(.announcement-item):not(.step-link):not(.link-button):not(.copy-button):not(.file-trigger) {
+  background: linear-gradient(135deg, #ff8bb2, #ff5a91);
+  box-shadow: 0 12px 30px rgba(255, 113, 161, 0.2);
+}
+
+:root[data-theme-variant="paper2gal"] .version-pill,
+:root[data-theme-variant="paper2gal"] .provider-pill,
+:root[data-theme-variant="paper2gal"] .status-chip,
+:root[data-theme-variant="paper2gal"] .eyebrow {
+  color: #b26d8b;
+}
+
+:root[data-theme-variant="paper2gal"] .output-card img {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 244, 248, 0.88));
+  border-color: rgba(245, 171, 198, 0.3);
 }
 
 .settings-layout {

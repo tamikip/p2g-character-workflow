@@ -1,18 +1,20 @@
 
 const STEP_ORDER = [
   "validate_input",
-  "remove_background",
   "expression_thinking",
   "expression_surprise",
   "expression_angry",
   "cg_01",
-  "cg_02"
+  "cg_02",
+  "cutout_expression_thinking",
+  "cutout_expression_surprise",
+  "cutout_expression_angry"
 ];
 
 const POLL_INTERVAL_MS = 1000;
 const PERSONAL_GITHUB_URL = "https://github.com/hzagaming";
 const PROJECT_GITHUB_URL = "https://github.com/hzagaming/p2g-character-workflow";
-const APP_VERSION = "1.0.1";
+const APP_VERSION = "1.2.0";
 
 const COLOR_STYLES = [
   { id: "cyan", label: { zh: "海蓝", en: "Cyan", ja: "シアン", ru: "Циан" } },
@@ -24,7 +26,71 @@ const COLOR_STYLES = [
   { id: "slate", label: { zh: "石墨", en: "Slate", ja: "スレート", ru: "Сланец" } }
 ];
 
+const STYLE_PRESETS = [
+  {
+    id: "default",
+    label: {
+      zh: "默认样式",
+      en: "Default Style",
+      ja: "デフォルトスタイル",
+      ru: "Стандартный стиль"
+    }
+  },
+  {
+    id: "paper2gal",
+    label: {
+      zh: "paper2gal 官方样式",
+      en: "paper2gal Official Style",
+      ja: "paper2gal 公式スタイル",
+      ru: "Официальный стиль paper2gal"
+    }
+  }
+];
+
 const ANNOUNCEMENTS = [
+  {
+    version: "1.2.0",
+    date: "2026-04-08",
+    type: "minor",
+    title: {
+      zh: "1.2.0 设置与样式升级",
+      en: "1.2.0 Settings and Style Upgrade",
+      ja: "1.2.0 設定とスタイルの強化",
+      ru: "1.2.0 Улучшение настроек и стиля"
+    },
+    summary: {
+      zh: "修复设置面板交互，新增 paper2gal 官方样式，并把工作流改成更耐失败的连续执行模式。",
+      en: "Fixes settings panel interactions, adds a dedicated paper2gal official style, and makes the workflow continue more gracefully across step failures.",
+      ja: "設定パネルの操作性を修正し、paper2gal 公式スタイルを追加、ワークフローも失敗に強い連続実行へ改善しました。",
+      ru: "Исправлена работа панели настроек, добавлен отдельный официальный стиль paper2gal, а workflow стал устойчивее к ошибкам отдельных шагов."
+    },
+    bullets: {
+      zh: [
+        "修复设置面板按钮无法点击的问题，并优化弹层关闭逻辑。",
+        "新增独立的 paper2gal 官方样式，启用后会接管浅色/深色和配色设置。",
+        "工作流改为先生成 3 个表情，再生成 2 个 CG，最后为表情图执行 rembg 抠图。",
+        "单步失败不再中断整条流程，失败与跳过原因都会被记录到工作流详情里。"
+      ],
+      en: [
+        "Fixed the non-clickable settings controls and tightened the modal close behavior.",
+        "Added a dedicated paper2gal official style preset that takes over light, dark, and accent settings when enabled.",
+        "The workflow now generates 3 expressions first, then 2 CG scenes, and only then runs rembg cutouts for the expression images.",
+        "A single step failure no longer stops the whole pipeline, and both failure and skip reasons are recorded in the workflow details."
+      ],
+      ja: [
+        "クリックできなかった設定ボタンを修正し、モーダルの閉じ方も安定させました。",
+        "独立した paper2gal 公式スタイルを追加し、有効時はライト/ダークと配色をこのプリセットが管理します。",
+        "ワークフローは 3 つの表情を先に生成し、その後に 2 つの CG、最後に表情画像へ rembg 切り抜きを行います。",
+        "単一ステップの失敗で全体を止めず、失敗理由とスキップ理由をワークフロー詳細へ残すようにしました。"
+      ],
+      ru: [
+        "Исправлены некликабельные кнопки в настройках и улучшено поведение закрытия модального окна.",
+        "Добавлен отдельный официальный пресет paper2gal, который при включении берет на себя светлую, темную и цветовую тему.",
+        "Теперь workflow сначала создает 3 выражения, затем 2 CG-сцены, и только после этого делает rembg-вырезание для изображений выражений.",
+        "Ошибка одного шага больше не останавливает весь pipeline, а причины ошибок и пропусков сохраняются в деталях workflow."
+      ]
+    }
+  },
   {
     version: "1.0.1",
     date: "2026-04-07",
@@ -234,11 +300,13 @@ const UI = {
   zh: {
     appName: "Character Workflow Agent",
     heroTitle: "单图进，多资产出",
-    heroText: "上传一张带背景的角色图，系统会依次完成校验、抠图、3 个表情差分和 2 张贴合角色的 CG 场景图。",
+    heroText: "上传一张带背景的角色图，系统会依次完成校验、3 个表情版本、2 张贴合角色的 CG 场景图，并在最后给表情图执行 rembg 抠图。",
     workflowBadge: "Workflow Agent",
     settings: "设置",
     settingsTitle: "项目设置",
     appearance: "样式",
+    appearancePreset: "样式预设",
+    appearanceLocked: "当前已启用 paper2gal 官方样式，浅色/深色和配色会被这个样式接管。",
     language: "语言",
     announcements: "公告",
     about: "关于",
@@ -282,18 +350,22 @@ const UI = {
     copied: "已复制",
     stepLabels: {
       validate_input: "输入校验",
-      remove_background: "背景去除",
       expression_thinking: "思考表情",
       expression_surprise: "惊讶表情",
       expression_angry: "生气表情",
       cg_01: "CG 场景 01",
-      cg_02: "CG 场景 02"
+      cg_02: "CG 场景 02",
+      cutout_expression_thinking: "思考表情抠图",
+      cutout_expression_surprise: "惊讶表情抠图",
+      cutout_expression_angry: "生气表情抠图"
     },
     statuses: {
       queued: "排队中",
       running: "执行中",
       success: "成功",
-      failed: "失败"
+      failed: "失败",
+      skipped: "跳过",
+      completed_with_errors: "完成但有错误"
     },
     networkStartError: "无法启动工作流：前端没有拿到后端响应。请确认服务端已运行在 http://localhost:3001，且 Vite 代理没有被改动。",
     networkFetchError: "无法获取最新工作流状态：请求没有到达后端。请检查本地服务、代理配置或浏览器控制台。",
@@ -303,11 +375,13 @@ const UI = {
   en: {
     appName: "Character Workflow Agent",
     heroTitle: "One image in, reusable assets out",
-    heroText: "Upload a single character image with background and the workflow will validate it, cut it out, generate 3 expression variants, and produce 2 character-fitting CG scenes.",
+    heroText: "Upload one character image with background and the workflow will validate it, generate 3 expression variants, produce 2 character-fitting CG scenes, and finally run rembg cutouts for the expression images.",
     workflowBadge: "Workflow Agent",
     settings: "Settings",
     settingsTitle: "Project Settings",
     appearance: "Appearance",
+    appearancePreset: "Style Preset",
+    appearanceLocked: "paper2gal Official Style is active, so light or dark mode and accent colors are managed by that preset.",
     language: "Language",
     announcements: "Announcements",
     about: "About",
@@ -351,18 +425,22 @@ const UI = {
     copied: "Copied",
     stepLabels: {
       validate_input: "Validate Input",
-      remove_background: "Remove Background",
       expression_thinking: "Thinking Expression",
       expression_surprise: "Surprise Expression",
       expression_angry: "Angry Expression",
       cg_01: "CG Scene 01",
-      cg_02: "CG Scene 02"
+      cg_02: "CG Scene 02",
+      cutout_expression_thinking: "Thinking Cutout",
+      cutout_expression_surprise: "Surprise Cutout",
+      cutout_expression_angry: "Angry Cutout"
     },
     statuses: {
       queued: "Queued",
       running: "Running",
       success: "Success",
-      failed: "Failed"
+      failed: "Failed",
+      skipped: "Skipped",
+      completed_with_errors: "Completed with Errors"
     },
     networkStartError: "Could not start the workflow because the frontend did not receive a response from the backend. Make sure the server is running on http://localhost:3001 and the Vite proxy is intact.",
     networkFetchError: "Could not fetch the latest workflow state because the request did not reach the backend. Check the local server, proxy settings, or browser console.",
@@ -372,11 +450,13 @@ const UI = {
   ja: {
     appName: "Character Workflow Agent",
     heroTitle: "1 枚の画像から再利用可能な資産へ",
-    heroText: "背景付きのキャラクター画像を 1 枚アップロードすると、検証、切り抜き、3 つの表情差分、2 枚のキャラ適合 CG シーンを順番に生成します。",
+    heroText: "背景付きのキャラクター画像を 1 枚アップロードすると、検証、3 つの表情差分、2 枚のキャラ適合 CG シーンを順番に生成し、最後に表情画像へ rembg 切り抜きを行います。",
     workflowBadge: "Workflow Agent",
     settings: "設定",
     settingsTitle: "プロジェクト設定",
     appearance: "スタイル",
+    appearancePreset: "スタイルプリセット",
+    appearanceLocked: "paper2gal 公式スタイルが有効なため、ライト/ダークとアクセント色はこのプリセットが管理します。",
     language: "言語",
     announcements: "お知らせ",
     about: "About",
@@ -420,18 +500,22 @@ const UI = {
     copied: "コピー済み",
     stepLabels: {
       validate_input: "入力検証",
-      remove_background: "背景除去",
       expression_thinking: "思考表情",
       expression_surprise: "驚き表情",
       expression_angry: "怒り表情",
       cg_01: "CG シーン 01",
-      cg_02: "CG シーン 02"
+      cg_02: "CG シーン 02",
+      cutout_expression_thinking: "思考表情切り抜き",
+      cutout_expression_surprise: "驚き表情切り抜き",
+      cutout_expression_angry: "怒り表情切り抜き"
     },
     statuses: {
       queued: "待機中",
       running: "実行中",
       success: "成功",
-      failed: "失敗"
+      failed: "失敗",
+      skipped: "スキップ",
+      completed_with_errors: "エラー付き完了"
     },
     networkStartError: "フロントエンドがバックエンド応答を受け取れず、ワークフローを開始できませんでした。http://localhost:3001 でサーバーが動作し、Vite プロキシ設定が変わっていないか確認してください。",
     networkFetchError: "最新のワークフロー状態を取得できませんでした。リクエストがバックエンドに届いていません。ローカルサーバー、プロキシ設定、ブラウザコンソールを確認してください。",
@@ -441,11 +525,13 @@ const UI = {
   ru: {
     appName: "Character Workflow Agent",
     heroTitle: "Одно изображение на входе, готовые ассеты на выходе",
-    heroText: "Загрузите одно изображение персонажа с фоном, и workflow по шагам выполнит проверку, вырезание, 3 варианта выражений и 2 CG-сцены, подходящие герою.",
+    heroText: "Загрузите одно изображение персонажа с фоном, и workflow по шагам выполнит проверку, создаст 3 варианта выражений, 2 подходящие CG-сцены и в конце сделает rembg-вырезание для изображений выражений.",
     workflowBadge: "Workflow Agent",
     settings: "Настройки",
     settingsTitle: "Настройки проекта",
     appearance: "Стиль",
+    appearancePreset: "Пресет стиля",
+    appearanceLocked: "Сейчас активен официальный стиль paper2gal, поэтому светлая/темная тема и цветовые акценты управляются этим пресетом.",
     language: "Язык",
     announcements: "Объявления",
     about: "О проекте",
@@ -489,18 +575,22 @@ const UI = {
     copied: "Скопировано",
     stepLabels: {
       validate_input: "Проверка входа",
-      remove_background: "Удаление фона",
       expression_thinking: "Выражение: раздумье",
       expression_surprise: "Выражение: удивление",
       expression_angry: "Выражение: злость",
       cg_01: "CG-сцена 01",
-      cg_02: "CG-сцена 02"
+      cg_02: "CG-сцена 02",
+      cutout_expression_thinking: "Вырезание раздумья",
+      cutout_expression_surprise: "Вырезание удивления",
+      cutout_expression_angry: "Вырезание злости"
     },
     statuses: {
       queued: "В очереди",
       running: "Выполняется",
       success: "Успешно",
-      failed: "Ошибка"
+      failed: "Ошибка",
+      skipped: "Пропущено",
+      completed_with_errors: "Завершено с ошибками"
     },
     networkStartError: "Не удалось запустить workflow: фронтенд не получил ответ от бэкенда. Убедитесь, что сервер работает на http://localhost:3001 и прокси Vite не изменен.",
     networkFetchError: "Не удалось получить актуальное состояние workflow: запрос не дошел до бэкенда. Проверьте локальный сервер, прокси или консоль браузера.",
@@ -621,8 +711,9 @@ const state = {
   language: readStoredValue("cwa-language", "zh"),
   mode: readStoredValue("cwa-mode", "dark"),
   accent: readStoredValue("cwa-accent", "cyan"),
+  visualPreset: readStoredValue("cwa-visual-preset", "default"),
   apiBase: readStoredValue("cwa-api-base", defaultApiBase()),
-  selectedAnnouncement: "1.0.1",
+  selectedAnnouncement: "1.2.0",
   copiedErrorKey: "",
   copyPayloads: {}
 };
@@ -718,10 +809,16 @@ async function fetchWorkflow(workflowId, t) {
 }
 
 function applyAppearance() {
+  const preset = STYLE_PRESETS.some((item) => item.id === state.visualPreset) ? state.visualPreset : "default";
+
+  state.visualPreset = preset;
   document.documentElement.dataset.mode = state.mode;
   document.documentElement.dataset.accent = state.accent;
+  document.documentElement.dataset.themeVariant = preset;
+  document.documentElement.lang = state.language;
   writeStoredValue("cwa-mode", state.mode);
   writeStoredValue("cwa-accent", state.accent);
+  writeStoredValue("cwa-visual-preset", preset);
   writeStoredValue("cwa-language", state.language);
   writeStoredValue("cwa-api-base", state.apiBase);
 }
@@ -740,7 +837,7 @@ function startPollingIfNeeded() {
     return;
   }
 
-  if (state.workflow.status === "completed" || state.workflow.status === "failed") {
+  if (["completed", "completed_with_errors", "failed"].includes(state.workflow.status)) {
     return;
   }
 
@@ -753,6 +850,8 @@ function startPollingIfNeeded() {
 
       if (latest.status === "completed") {
         setMessage("success", state.language === "zh" ? "工作流已完成。" : t.statuses.success);
+      } else if (latest.status === "completed_with_errors") {
+        setMessage("error", latest.error || (state.language === "zh" ? "工作流已完成，但部分步骤失败或被跳过。" : t.statuses.completed_with_errors));
       } else if (latest.status === "failed") {
         setMessage("error", latest.error || t.networkFetchError);
       }
@@ -774,15 +873,14 @@ function getOutputCards(t) {
   }
 
   return [
-    {
-      title: state.language === "zh" ? "抠图结果" : state.language === "ja" ? "切り抜き結果" : state.language === "ru" ? "Вырезание" : "Cutout",
-      url: outputs.cutout
-    },
     { title: t.stepLabels.expression_thinking, url: outputs.expressions?.thinking },
     { title: t.stepLabels.expression_surprise, url: outputs.expressions?.surprise },
     { title: t.stepLabels.expression_angry, url: outputs.expressions?.angry },
     { title: t.stepLabels.cg_01, url: outputs.cg_outputs?.[0] },
-    { title: t.stepLabels.cg_02, url: outputs.cg_outputs?.[1] }
+    { title: t.stepLabels.cg_02, url: outputs.cg_outputs?.[1] },
+    { title: t.stepLabels.cutout_expression_thinking, url: outputs.expression_cutouts?.thinking },
+    { title: t.stepLabels.cutout_expression_surprise, url: outputs.expression_cutouts?.surprise },
+    { title: t.stepLabels.cutout_expression_angry, url: outputs.expression_cutouts?.angry }
   ].filter((item) => Boolean(item.url));
 }
 
@@ -814,6 +912,8 @@ function renderSettings(t, selectedAnnouncementData) {
     return "";
   }
 
+  const appearanceLocked = state.visualPreset === "paper2gal";
+
   const tabs = [
     ["appearance", t.appearance],
     ["language", t.language],
@@ -824,7 +924,7 @@ function renderSettings(t, selectedAnnouncementData) {
 
   return `
     <div class="settings-overlay" data-action="close-settings-overlay">
-      <section class="settings-modal panel glass" onclick="event.stopPropagation()">
+      <section class="settings-modal panel glass">
         <div class="settings-header">
           <div>
             <h2>${escapeHtml(t.settingsTitle)}</h2>
@@ -854,10 +954,27 @@ function renderSettings(t, selectedAnnouncementData) {
               ? `
                 <div class="settings-section">
                   <div class="settings-block">
+                    <h3>${escapeHtml(t.appearancePreset)}</h3>
+                    <div class="choice-row">
+                      ${STYLE_PRESETS.map(
+                        (preset) => `
+                          <button
+                            type="button"
+                            class="${preset.id === state.visualPreset ? "choice active" : "choice"}"
+                            data-action="set-preset"
+                            data-preset="${preset.id}"
+                          >
+                            ${escapeHtml(preset.label[state.language] || preset.label.zh)}
+                          </button>`
+                      ).join("")}
+                    </div>
+                    ${appearanceLocked ? `<p class="settings-help">${escapeHtml(t.appearanceLocked)}</p>` : ""}
+                  </div>
+                  <div class="settings-block">
                     <h3>${escapeHtml(t.mode)}</h3>
                     <div class="choice-row">
-                      <button type="button" class="${state.mode === "light" ? "choice active" : "choice"}" data-action="set-mode" data-mode="light">${escapeHtml(t.light)}</button>
-                      <button type="button" class="${state.mode === "dark" ? "choice active" : "choice"}" data-action="set-mode" data-mode="dark">${escapeHtml(t.dark)}</button>
+                      <button type="button" class="${state.mode === "light" ? "choice active" : "choice"}" data-action="set-mode" data-mode="light" ${appearanceLocked ? "disabled" : ""}>${escapeHtml(t.light)}</button>
+                      <button type="button" class="${state.mode === "dark" ? "choice active" : "choice"}" data-action="set-mode" data-mode="dark" ${appearanceLocked ? "disabled" : ""}>${escapeHtml(t.dark)}</button>
                     </div>
                   </div>
                   <div class="settings-block">
@@ -870,6 +987,7 @@ function renderSettings(t, selectedAnnouncementData) {
                             class="${item.id === state.accent ? `palette-chip ${item.id} active` : `palette-chip ${item.id}` }"
                             data-action="set-accent"
                             data-accent="${item.id}"
+                            ${appearanceLocked ? "disabled" : ""}
                           >
                             <span class="palette-dot"></span>
                             <span>${escapeHtml(item.label[state.language] || item.label.zh)}</span>
@@ -1236,6 +1354,9 @@ root.addEventListener("click", async (event) => {
   }
 
   if (action === "close-settings" || action === "close-settings-overlay") {
+    if (action === "close-settings-overlay" && event.target.closest(".settings-modal")) {
+      return;
+    }
     state.settingsOpen = false;
     renderApp();
     return;
@@ -1248,13 +1369,25 @@ root.addEventListener("click", async (event) => {
   }
 
   if (action === "set-mode") {
+    if (state.visualPreset === "paper2gal") {
+      return;
+    }
     state.mode = button.dataset.mode || "dark";
     renderApp();
     return;
   }
 
   if (action === "set-accent") {
+    if (state.visualPreset === "paper2gal") {
+      return;
+    }
     state.accent = button.dataset.accent || "cyan";
+    renderApp();
+    return;
+  }
+
+  if (action === "set-preset") {
+    state.visualPreset = button.dataset.preset || "default";
     renderApp();
     return;
   }

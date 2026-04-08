@@ -20,65 +20,6 @@ const {
 } = require("../services/providerRegistry");
 const { formatErrorDetails } = require("../utils/errors");
 
-function shouldFallbackToOriginalReference(quality, minCoverageRatio) {
-  if (!quality || typeof quality !== "object") {
-    return false;
-  }
-
-  return Number(quality.non_transparent_ratio || 0) < minCoverageRatio;
-}
-
-function shouldRetryPlatoWithOriginal(error) {
-  return Boolean(
-    error &&
-      (error.code === "PLATO_IMAGE_PAYLOAD_MISSING" || error.code === "PLATO_REQUEST_FAILED")
-  );
-}
-
-async function runGeneratedImageStep({
-  runner,
-  config,
-  prompt,
-  destinationPath,
-  primaryReference,
-  fallbackReference
-}) {
-  const attemptRunner = async (reference, fallbackReason = null) => {
-    const result = await runner.run({
-      config,
-      sourcePath: reference.path,
-      sourceMimeType: reference.mimeType,
-      destinationPath,
-      prompt
-    });
-
-    return {
-      ...result,
-      debug: {
-        ...(result?.debug || {}),
-        reference_source: reference.label,
-        reference_path: reference.path,
-        reference_mime_type: reference.mimeType,
-        fallback_reason: fallbackReason
-      }
-    };
-  };
-
-  try {
-    return await attemptRunner(primaryReference, primaryReference.fallbackReason || null);
-  } catch (error) {
-    if (
-      fallbackReference &&
-      primaryReference.path !== fallbackReference.path &&
-      shouldRetryPlatoWithOriginal(error)
-    ) {
-      return attemptRunner(fallbackReference, primaryReference.fallbackReason || "plato_retry");
-    }
-
-    throw error;
-  }
-}
-
 function toPublicOutputUrl(workflowId, fileName) {
   return `/outputs/${workflowId}/${fileName}`;
 }
@@ -110,7 +51,8 @@ async function writeManifestSnapshot(workflowId, outputDir, promptPack) {
   return manifest;
 }
 
-async function runStep(workflowId, stepName, provider, runFn, onSuccess) {
+async function runStep(workflowId, stepName, provider, runFn, onSuccess, options = {}) {
+  const { fatal = true } = options;
   markStepStatus(workflowId, stepName, "running", null, { provider });
   setWorkflowStatus(workflowId, "running", stepName, null, null);
 
@@ -142,9 +84,22 @@ async function runStep(workflowId, stepName, provider, runFn, onSuccess) {
       provider,
       debug: detailed.debug
     });
-    setWorkflowStatus(workflowId, "failed", stepName, detailed.message, detailed.debug);
-    throw error;
+    if (fatal) {
+      setWorkflowStatus(workflowId, "failed", stepName, detailed.message, detailed.debug);
+      throw error;
+    }
+
+    return null;
   }
+}
+
+async function skipStep(workflowId, outputDir, promptPack, stepName, provider, message, debug = null) {
+  markStepStatus(workflowId, stepName, "skipped", message, {
+    provider,
+    debug
+  });
+  setWorkflowStatus(workflowId, "running", stepName, null, null);
+  await writeManifestSnapshot(workflowId, outputDir, promptPack);
 }
 
 async function executeWorkflow(workflowId, config) {
@@ -154,14 +109,15 @@ async function executeWorkflow(workflowId, config) {
   }
 
   const promptPack = {
-    remove_background: createBackgroundRemovalPrompt(),
     expressions: {},
-    cg: []
+    cg: [],
+    expression_cutouts: {
+      provider: config.bgRemovalProvider,
+      prompt: createBackgroundRemovalPrompt()
+    }
   };
 
   try {
-    let currentSourcePath = workflow.source_image.upload_path;
-    let currentSourceMimeType = workflow.source_image.mime_type;
     const originalSourcePath = workflow.source_image.upload_path;
     const originalSourceMimeType = workflow.source_image.mime_type;
     const outputDir = path.join(config.outputDir, workflowId);
@@ -182,93 +138,34 @@ async function executeWorkflow(workflowId, config) {
     await runStep(workflowId, "validate_input", "system", async () => true);
     await writeManifestSnapshot(workflowId, outputDir, promptPack);
 
-    const cutoutResult = await runStep(
-      workflowId,
-      "remove_background",
-      backgroundRemovalRunner.provider,
-      async () =>
-        backgroundRemovalRunner.run({
-          config,
-          sourcePath: currentSourcePath,
-          sourceMimeType: currentSourceMimeType,
-          destinationPath: path.join(outputDir, "cutout.png"),
-          prompt: promptPack.remove_background
-        }),
-      async (result, outputUrl) => {
-        currentSourcePath = result.output_path;
-        currentSourceMimeType = getMimeTypeFromPath(result.output_path);
-        mergeWorkflowOutputs(workflowId, {
-          cutout: outputUrl,
-          providers: {
-            remove_background: backgroundRemovalRunner.provider
-          }
-        });
-        await writeManifestSnapshot(workflowId, outputDir, promptPack);
-      }
-    );
-
-    currentSourcePath = cutoutResult.output_path;
-    currentSourceMimeType = getMimeTypeFromPath(cutoutResult.output_path);
-
-    let preferredReference = {
-      label: "cutout",
-      path: currentSourcePath,
-      mimeType: currentSourceMimeType,
-      fallbackReason: null
-    };
-    const originalReference = {
-      label: "original_upload",
-      path: originalSourcePath,
-      mimeType: originalSourceMimeType
-    };
-
-    if (
-      (expressionRunner.provider === "plato" || cgRunner.provider === "plato") &&
-      shouldFallbackToOriginalReference(cutoutResult?.debug?.quality, config.rembgMinCoverageRatio)
-    ) {
-      preferredReference = {
-        ...originalReference,
-        fallbackReason: "cutout_low_coverage"
-      };
-    }
-
     const expressionMap = {
       thinking: "expression_thinking",
       surprise: "expression_surprise",
       angry: "expression_angry"
     };
+    const successfulExpressionArtifacts = {};
 
     for (const [expressionName, stepName] of Object.entries(expressionMap)) {
       const expressionPrompt = await getExpressionPrompt(expressionName);
       promptPack.expressions[expressionName] = expressionPrompt;
 
-      await runStep(
+      const expressionResult = await runStep(
         workflowId,
         stepName,
         expressionRunner.provider,
-        async () => {
-          const destinationPath = path.join(outputDir, `expression-${expressionName}.png`);
-
-          if (expressionRunner.provider === "plato") {
-            return runGeneratedImageStep({
-              runner: expressionRunner,
-              config,
-              prompt: expressionPrompt,
-              destinationPath,
-              primaryReference: preferredReference,
-              fallbackReference: originalReference
-            });
-          }
-
-          return expressionRunner.run({
+        async () =>
+          expressionRunner.run({
             config,
-            sourcePath: currentSourcePath,
-            sourceMimeType: currentSourceMimeType,
-            destinationPath,
+            sourcePath: originalSourcePath,
+            sourceMimeType: originalSourceMimeType,
+            destinationPath: path.join(outputDir, `expression-${expressionName}.png`),
             prompt: expressionPrompt
-          });
-        },
-        async (_result, outputUrl) => {
+          }),
+        async (result, outputUrl) => {
+          successfulExpressionArtifacts[expressionName] = {
+            outputPath: result.output_path,
+            mimeType: getMimeTypeFromPath(result.output_path)
+          };
           mergeWorkflowOutputs(workflowId, {
             expressions: {
               [expressionName]: outputUrl
@@ -278,8 +175,15 @@ async function executeWorkflow(workflowId, config) {
             }
           });
           await writeManifestSnapshot(workflowId, outputDir, promptPack);
+        },
+        {
+          fatal: false
         }
       );
+
+      if (!expressionResult) {
+        successfulExpressionArtifacts[expressionName] = null;
+      }
     }
 
     const cgPromptEntries = await getCgPrompts();
@@ -295,28 +199,14 @@ async function executeWorkflow(workflowId, config) {
         workflowId,
         stepName,
         cgRunner.provider,
-        async () => {
-          const destinationPath = path.join(outputDir, outputName);
-
-          if (cgRunner.provider === "plato") {
-            return runGeneratedImageStep({
-              runner: cgRunner,
-              config,
-              prompt: cgPromptEntry.prompt,
-              destinationPath,
-              primaryReference: preferredReference,
-              fallbackReference: originalReference
-            });
-          }
-
-          return cgRunner.run({
+        async () =>
+          cgRunner.run({
             config,
-            sourcePath: currentSourcePath,
-            sourceMimeType: currentSourceMimeType,
-            destinationPath,
+            sourcePath: originalSourcePath,
+            sourceMimeType: originalSourceMimeType,
+            destinationPath: path.join(outputDir, outputName),
             prompt: cgPromptEntry.prompt
-          });
-        },
+          }),
         async (_result, outputUrl) => {
           const nextCgOutputs = getWorkflow(workflowId)?.outputs?.cg_outputs || [null, null];
           nextCgOutputs[index] = outputUrl;
@@ -328,11 +218,69 @@ async function executeWorkflow(workflowId, config) {
             }
           });
           await writeManifestSnapshot(workflowId, outputDir, promptPack);
+        },
+        {
+          fatal: false
+        }
+      );
+    }
+
+    for (const [expressionName, stepName] of [
+      ["thinking", "cutout_expression_thinking"],
+      ["surprise", "cutout_expression_surprise"],
+      ["angry", "cutout_expression_angry"]
+    ]) {
+      const sourceArtifact = successfulExpressionArtifacts[expressionName];
+
+      if (!sourceArtifact?.outputPath) {
+        await skipStep(
+          workflowId,
+          outputDir,
+          promptPack,
+          stepName,
+          backgroundRemovalRunner.provider,
+          `Skipped because ${expressionMap[expressionName]} failed, so no expression image was available for cutout.`,
+          {
+            dependency_step: expressionMap[expressionName],
+            reason: "missing_expression_output"
+          }
+        );
+        continue;
+      }
+
+      await runStep(
+        workflowId,
+        stepName,
+        backgroundRemovalRunner.provider,
+        async () =>
+          backgroundRemovalRunner.run({
+            config,
+            sourcePath: sourceArtifact.outputPath,
+            sourceMimeType: sourceArtifact.mimeType,
+            destinationPath: path.join(outputDir, `expression-${expressionName}-cutout.png`),
+            prompt: promptPack.expression_cutouts.prompt
+          }),
+        async (_result, outputUrl) => {
+          mergeWorkflowOutputs(workflowId, {
+            expression_cutouts: {
+              [expressionName]: outputUrl
+            },
+            providers: {
+              remove_background: backgroundRemovalRunner.provider
+            }
+          });
+          await writeManifestSnapshot(workflowId, outputDir, promptPack);
+        },
+        {
+          fatal: false
         }
       );
     }
 
     const currentWorkflow = getWorkflow(workflowId);
+    const failedOrSkippedSteps = Object.entries(currentWorkflow.steps).filter(([, step]) =>
+      step.status === "failed" || step.status === "skipped"
+    );
     const outputs = {
       ...currentWorkflow.outputs,
       providers: {
@@ -343,7 +291,24 @@ async function executeWorkflow(workflowId, config) {
     };
 
     setWorkflowOutputs(workflowId, outputs);
-    setWorkflowStatus(workflowId, "completed", "done", null, null);
+    if (failedOrSkippedSteps.length > 0) {
+      setWorkflowStatus(
+        workflowId,
+        "completed_with_errors",
+        "done",
+        `${failedOrSkippedSteps.length} steps did not finish successfully.`,
+        {
+          failed_steps: failedOrSkippedSteps.map(([name, step]) => ({
+            step: name,
+            status: step.status,
+            provider: step.provider,
+            error: step.error
+          }))
+        }
+      );
+    } else {
+      setWorkflowStatus(workflowId, "completed", "done", null, null);
+    }
     await writeManifestSnapshot(workflowId, outputDir, promptPack);
   } catch (error) {
     const currentWorkflow = getWorkflow(workflowId);

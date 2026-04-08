@@ -7,12 +7,14 @@ const store = new Map();
 
 const WORKFLOW_STEPS = [
   "validate_input",
-  "remove_background",
   "expression_thinking",
   "expression_surprise",
   "expression_angry",
   "cg_01",
-  "cg_02"
+  "cg_02",
+  "cutout_expression_thinking",
+  "cutout_expression_surprise",
+  "cutout_expression_angry"
 ];
 
 function nowIso() {
@@ -44,7 +46,6 @@ function makeStepMap() {
 
 function makeOutputShape() {
   return {
-    cutout: null,
     manifest: null,
     providers: {
       remove_background: null,
@@ -52,6 +53,11 @@ function makeOutputShape() {
       cg: null
     },
     expressions: {
+      thinking: null,
+      surprise: null,
+      angry: null
+    },
+    expression_cutouts: {
       thinking: null,
       surprise: null,
       angry: null
@@ -78,6 +84,10 @@ function mergeOutputShape(current, patch) {
     expressions: {
       ...base.expressions,
       ...(patch.expressions || {})
+    },
+    expression_cutouts: {
+      ...base.expression_cutouts,
+      ...(patch.expression_cutouts || {})
     },
     cg_outputs: Array.isArray(patch.cg_outputs)
       ? patch.cg_outputs.map((item, index) => item || base.cg_outputs[index] || null)
@@ -117,6 +127,10 @@ function loadWorkflowFromDisk(id) {
   try {
     const raw = fs.readFileSync(getSnapshotPath(id), "utf8");
     const workflow = JSON.parse(raw);
+    workflow.steps = {
+      ...makeStepMap(),
+      ...(workflow.steps || {})
+    };
     workflow.outputs = mergeOutputShape(makeOutputShape(), workflow.outputs || {});
     store.set(id, workflow);
     return workflow;
@@ -177,11 +191,11 @@ function markStepStatus(id, step, status, errorMessage = null, metadata = null) 
     stepRecord.started_at = nowIso();
   }
 
-  if ((status === "success" || status === "failed") && !stepRecord.started_at) {
+  if ((status === "success" || status === "failed" || status === "skipped") && !stepRecord.started_at) {
     stepRecord.started_at = nowIso();
   }
 
-  if (status === "success" || status === "failed") {
+  if (status === "success" || status === "failed" || status === "skipped") {
     stepRecord.finished_at = nowIso();
   }
 

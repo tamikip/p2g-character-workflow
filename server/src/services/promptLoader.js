@@ -55,7 +55,7 @@ async function loadPromptFile(fileName) {
 
 function createBackgroundRemovalPrompt() {
   return [
-    "Remove the background from the uploaded character image.",
+    "Remove the background from the provided character image.",
     "Keep only the main character.",
     "Preserve face, hair, outfit, silhouette, and all important design details.",
     "Return a clean PNG cutout with a transparent background.",
@@ -66,9 +66,9 @@ function createBackgroundRemovalPrompt() {
 
 async function getExpressionPrompt(expressionName) {
   const expressionDetails = {
-    thinking: "基于抠图，生成思考表情，透明背景。表情重点：眼神集中、眉眼微收、嘴部自然克制。",
-    surprise: "基于抠图，生成惊讶表情，透明背景。表情重点：眼睛睁大、眉毛上扬、嘴巴自然张开。",
-    angry: "基于抠图，生成生气表情，透明背景。表情重点：眉头压低、嘴角绷紧、面部紧张感更明显。"
+    thinking: "基于原始角色图，生成思考表情版本。表情重点：眼神集中、眉眼微收、嘴部自然克制。",
+    surprise: "基于原始角色图，生成惊讶表情版本。表情重点：眼睛睁大、眉毛上扬、嘴巴自然张开。",
+    angry: "基于原始角色图，生成生气表情版本。表情重点：眉头压低、嘴角绷紧、面部紧张感更明显。"
   };
 
   if (!expressionDetails[expressionName]) {
@@ -79,7 +79,7 @@ async function getExpressionPrompt(expressionName) {
     CHARACTER_CONSISTENCY_REQUIREMENTS,
     expressionDetails[expressionName],
     "只允许修改表情，不要修改姿态、发型、服装、配饰和角色设定。",
-    "输出透明背景 PNG，主体完整，边缘干净。",
+    "允许保留原图背景或生成自然背景，不需要透明背景。",
     `负面：${NEGATIVE_PROMPT}。`
   ].join(" ");
 }

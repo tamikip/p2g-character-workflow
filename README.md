@@ -21,21 +21,24 @@ into a structured and repeatable pipeline.
 ## Phase 1 Workflow
 1. Upload one character image (background allowed)
 2. Validate input file (type, size, dimensions)
-3. Remove background and produce transparent character cutout
-4. Generate expression variant: `thinking`
-5. Generate expression variant: `surprise`
-6. Generate expression variant: `angry`
-7. Generate `2` CG-style outputs while keeping the same character identity
-8. Return a bundled result set suitable for downstream creative use
+3. Generate expression variant: `thinking`
+4. Generate expression variant: `surprise`
+5. Generate expression variant: `angry`
+6. Generate `2` CG-style outputs while keeping the same character identity
+7. Run `rembg` on the 3 expression images to create transparent expression cutouts
+8. Continue the workflow even if a non-critical generation step fails, while recording step-level errors and skipped dependencies
+9. Return a bundled result set suitable for downstream creative use
 
 ## Included In Phase 1
 - Single image upload
 - Basic image validation
 - Background removal step
 - 3 expression outputs (`thinking`, `surprise`, `angry`)
+- 3 expression cutout outputs generated after the expression stage
 - 2 CG outputs
 - Simple web UI for upload + workflow progress + outputs
 - Server-side pipeline orchestration with mock/stub adapters
+- Non-fatal step execution so one failed generation step does not stop the entire workflow
 
 ## Not Included In Phase 1
 - Character element decomposition
