@@ -989,3 +989,12 @@ code {
 .settings-help {
   margin-top: 10px;
 }
+
+.settings-warning {
+  color: #ff9bb7;
+  font-weight: 600;
+}
+
+:root[data-theme-variant="paper2gal"] .settings-warning {
+  color: #d85c87;
+}

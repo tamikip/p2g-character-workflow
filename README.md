@@ -144,6 +144,32 @@ npm run dev:web
 http://localhost:5173
 ```
 
+## GitHub Pages + Hosted Backend
+GitHub Pages can only serve the static frontend. It cannot run the Node/Express API.
+
+That means:
+- `https://hzagaming.github.io/...` can host `index.html`, `app.js`, and `styles.css`
+- it cannot handle `POST /api/workflows`
+- the backend must be deployed separately on a real Node host such as Render, Railway, Fly.io, or your own server
+
+Recommended setup:
+1. Deploy the frontend from this repository to GitHub Pages
+2. Deploy `server/` to a Node host with HTTPS enabled
+3. Set `CORS_ORIGIN` on the backend to your GitHub Pages origin, for example:
+```dotenv
+CORS_ORIGIN=https://hzagaming.github.io
+```
+4. Open the GitHub Pages site, go to `设置 -> 接口`, and set:
+```text
+https://your-backend.example.com
+```
+5. Start the workflow from the GitHub Pages frontend
+
+Notes:
+- Do not use the GitHub Pages URL itself as the API address
+- The API address must point to your deployed backend root, not to `/api/workflows`
+- If the page is opened on GitHub Pages and no API address is configured, the frontend now blocks workflow submission and shows a direct setup warning instead of letting the request fail with `405`
+
 ## Live Provider Setup
 If you want the workflow to behave closer to the current `p2g` flow, switch the pipeline to Plato AI:
 
@@ -182,6 +208,13 @@ npm run build
 npm --prefix server run start
 ```
 3. Open app at `http://localhost:3001`
+
+## Production Checklist
+- Frontend deployed to GitHub Pages or another static host
+- Backend deployed to a Node runtime with persistent storage or writable temp storage
+- `CORS_ORIGIN` set to the frontend origin
+- `PIPELINE_MODE`, provider keys, and `rembg` runtime configured on the backend
+- Backend served over `https`
 
 ## API (Phase 1 Prototype)
 - `POST /api/workflows`

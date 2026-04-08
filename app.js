@@ -14,7 +14,7 @@ const STEP_ORDER = [
 const POLL_INTERVAL_MS = 1000;
 const PERSONAL_GITHUB_URL = "https://github.com/hzagaming";
 const PROJECT_GITHUB_URL = "https://github.com/hzagaming/p2g-character-workflow";
-const APP_VERSION = "1.3.1";
+const APP_VERSION = "1.3.2";
 
 const COLOR_STYLES = [
   { id: "cyan", label: { zh: "海蓝", en: "Cyan", ja: "シアン", ru: "Циан" } },
@@ -48,6 +48,49 @@ const STYLE_PRESETS = [
 ];
 
 const ANNOUNCEMENTS = [
+  {
+    version: "1.3.2",
+    date: "2026-04-08",
+    type: "patch",
+    title: {
+      zh: "1.3.2 GitHub Pages 接口修复",
+      en: "1.3.2 GitHub Pages API Fix",
+      ja: "1.3.2 GitHub Pages API 修正",
+      ru: "1.3.2 Исправление API для GitHub Pages"
+    },
+    summary: {
+      zh: "修复 GitHub Pages 场景下误请求同源 /api 的问题，并补充独立后端部署说明。",
+      en: "Fixes the GitHub Pages same-origin /api mistake and adds clearer hosted-backend deployment guidance.",
+      ja: "GitHub Pages 上で同一オリジン /api を誤って叩く問題を修正し、独立バックエンドの配置手順を追記しました。",
+      ru: "Исправлена ошибочная отправка запросов на same-origin /api на GitHub Pages и добавлены более понятные инструкции по размещению отдельного бэкенда."
+    },
+    bullets: {
+      zh: [
+        "GitHub Pages 环境下如果未配置 API 地址，前端会直接拦截并提示，不再发出必然失败的 /api 请求。",
+        "设置面板的接口页会明确提示需要填写独立后端地址。",
+        "支持通过 URL 参数 api=https://your-backend.example.com 预填后端地址。",
+        "README、server README 和 .env 示例补充了 GitHub Pages 加独立后端的部署说明。"
+      ],
+      en: [
+        "When running on GitHub Pages without an API endpoint configured, the frontend now blocks workflow submission instead of sending a doomed /api request.",
+        "The backend tab in Settings now clearly explains that a separately hosted backend URL is required.",
+        "You can now prefill the backend with a URL parameter like api=https://your-backend.example.com.",
+        "README, server README, and the env example now document the GitHub Pages plus hosted-backend deployment flow."
+      ],
+      ja: [
+        "GitHub Pages 上で API アドレス未設定の場合、失敗確定の /api リクエストを送らずにフロントエンド側で案内します。",
+        "設定のバックエンド欄で、独立してホストしたバックエンド URL が必要だと明確に表示します。",
+        "api=https://your-backend.example.com のような URL パラメータでバックエンドを事前指定できます。",
+        "README、server README、.env 例に GitHub Pages と独立バックエンドの構成手順を追記しました。"
+      ],
+      ru: [
+        "Если сайт работает на GitHub Pages и API endpoint не задан, фронтенд теперь заранее останавливает запуск workflow вместо заведомо неудачного запроса к /api.",
+        "Во вкладке бэкенда в настройках теперь явно указано, что нужен отдельно размещенный backend URL.",
+        "Теперь можно заранее передать backend через URL-параметр вида api=https://your-backend.example.com.",
+        "README, server README и пример env дополнены инструкцией по схеме GitHub Pages + отдельный бэкенд."
+      ]
+    }
+  },
   {
     version: "1.3.1",
     date: "2026-04-08",
@@ -458,6 +501,7 @@ const UI = {
     },
     networkStartError: "无法启动工作流：前端没有拿到后端响应。请确认服务端已运行在 http://localhost:3001，且 Vite 代理没有被改动。",
     networkFetchError: "无法获取最新工作流状态：请求没有到达后端。请检查本地服务、代理配置或浏览器控制台。",
+    hostedApiRequired: "当前页面部署在 GitHub Pages。请先在 设置 -> 接口 中填写后端 API 地址，再启动工作流。",
     sectionSummary: "完成步骤",
     livePreview: "即时预览"
   },
@@ -536,6 +580,7 @@ const UI = {
     },
     networkStartError: "Could not start the workflow because the frontend did not receive a response from the backend. Make sure the server is running on http://localhost:3001 and the Vite proxy is intact.",
     networkFetchError: "Could not fetch the latest workflow state because the request did not reach the backend. Check the local server, proxy settings, or browser console.",
+    hostedApiRequired: "This page is running on GitHub Pages. Open Settings -> Backend and enter your hosted API URL before starting the workflow.",
     sectionSummary: "Completed Steps",
     livePreview: "Live Preview"
   },
@@ -614,6 +659,7 @@ const UI = {
     },
     networkStartError: "フロントエンドがバックエンド応答を受け取れず、ワークフローを開始できませんでした。http://localhost:3001 でサーバーが動作し、Vite プロキシ設定が変わっていないか確認してください。",
     networkFetchError: "最新のワークフロー状態を取得できませんでした。リクエストがバックエンドに届いていません。ローカルサーバー、プロキシ設定、ブラウザコンソールを確認してください。",
+    hostedApiRequired: "このページは GitHub Pages 上で動いています。ワークフロー開始前に、設定 -> バックエンド で API アドレスを入力してください。",
     sectionSummary: "完了ステップ",
     livePreview: "ライブプレビュー"
   },
@@ -692,6 +738,7 @@ const UI = {
     },
     networkStartError: "Не удалось запустить workflow: фронтенд не получил ответ от бэкенда. Убедитесь, что сервер работает на http://localhost:3001 и прокси Vite не изменен.",
     networkFetchError: "Не удалось получить актуальное состояние workflow: запрос не дошел до бэкенда. Проверьте локальный сервер, прокси или консоль браузера.",
+    hostedApiRequired: "Эта страница работает на GitHub Pages. Перед запуском workflow откройте Настройки -> Бэкенд и укажите URL вашего API.",
     sectionSummary: "Завершенные шаги",
     livePreview: "Мгновенный предпросмотр"
   }
@@ -881,7 +928,7 @@ const state = {
   accent: readStoredValue("cwa-accent", "cyan"),
   visualPreset: readStoredValue("cwa-visual-preset", "default"),
   apiBase: readStoredValue("cwa-api-base", defaultApiBase()),
-  selectedAnnouncement: "1.3.1",
+  selectedAnnouncement: "1.3.2",
   copiedErrorKey: "",
   copiedActionKey: "",
   copyPayloads: {}
@@ -890,7 +937,13 @@ const state = {
 let pollTimer = null;
 
 function defaultApiBase() {
-  const { hostname, origin, port } = window.location;
+  const { hostname, origin, port, search } = window.location;
+  const params = new URLSearchParams(search);
+  const queryApiBase = (params.get("api") || "").trim();
+
+  if (queryApiBase) {
+    return queryApiBase.replace(/\/+$/, "");
+  }
 
   if (hostname === "localhost" || hostname === "127.0.0.1") {
     if (port === "5173") {
@@ -901,6 +954,15 @@ function defaultApiBase() {
   }
 
   return "";
+}
+
+function isHostedStaticEnvironment() {
+  const { hostname, protocol } = window.location;
+  return protocol === "https:" && hostname.endsWith("github.io");
+}
+
+function requiresHostedApiBase() {
+  return isHostedStaticEnvironment() && !(state.apiBase || "").trim();
 }
 
 function getText() {
@@ -950,6 +1012,10 @@ function toAssetUrl(url) {
 }
 
 async function startWorkflow(file, t) {
+  if (requiresHostedApiBase()) {
+    throw new Error(t.hostedApiRequired);
+  }
+
   const formData = new FormData();
   formData.append("image", file);
 
@@ -967,6 +1033,10 @@ async function startWorkflow(file, t) {
 }
 
 async function fetchWorkflow(workflowId, t) {
+  if (requiresHostedApiBase()) {
+    throw new Error(t.hostedApiRequired);
+  }
+
   const response = await fetch(buildApiUrl(`/api/workflows/${workflowId}`));
   const payload = await parseJsonResponse(response);
 
@@ -1205,6 +1275,7 @@ function renderSettings(t, selectedAnnouncementData) {
                     <input id="api-base-input" class="settings-input" type="text" value="${escapeHtml(state.apiBase)}" placeholder="https://your-api.example.com" />
                     <p class="settings-help">${escapeHtml(t.apiEndpointHint)}</p>
                     <p class="settings-help muted">${escapeHtml(state.apiBase ? state.apiBase : t.noApiConfigured)}</p>
+                    ${requiresHostedApiBase() ? `<p class="settings-help settings-warning">${escapeHtml(t.hostedApiRequired)}</p>` : ""}
                   </div>
                 </div>`
               : ""}
@@ -1478,6 +1549,14 @@ async function handleSubmit(event) {
   }
 
   const t = getText();
+
+  if (requiresHostedApiBase()) {
+    state.settingsOpen = true;
+    state.settingsTab = "backend";
+    setMessage("error", t.hostedApiRequired);
+    renderApp();
+    return;
+  }
 
   try {
     state.submitting = true;
