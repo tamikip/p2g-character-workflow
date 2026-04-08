@@ -14,7 +14,7 @@ const STEP_ORDER = [
 const POLL_INTERVAL_MS = 1000;
 const PERSONAL_GITHUB_URL = "https://github.com/hzagaming";
 const PROJECT_GITHUB_URL = "https://github.com/hzagaming/p2g-character-workflow";
-const APP_VERSION = "1.3.1";
+const APP_VERSION = "1.3.2";
 
 const COLOR_STYLES = [
   { id: "cyan", label: { zh: "海蓝", en: "Cyan", ja: "シアン", ru: "Циан" } },
@@ -49,14 +49,14 @@ const STYLE_PRESETS = [
 
 const ANNOUNCEMENTS = [
   {
-    version: "1.3.1",
+    version: "1.3.2",
     date: "2026-04-08",
     type: "patch",
     title: {
-      zh: "1.3.1 下载与输出体验更新",
-      en: "1.3.1 Download and Output UX Update",
-      ja: "1.3.1 ダウンロードと出力体験の更新",
-      ru: "1.3.1 Обновление скачивания и вывода"
+      zh: "1.3.2 下载与输出体验更新",
+      en: "1.3.2 Download and Output UX Update",
+      ja: "1.3.2 ダウンロードと出力体験の更新",
+      ru: "1.3.2 Обновление скачивания и вывода"
     },
     summary: {
       zh: "目标输出更新为 8 个，为每个产出补充下载与复制按钮，并支持一键打包下载全部结果。",
@@ -869,6 +869,26 @@ for (const [languageCode, patch] of Object.entries(BACKEND_UI_PATCH)) {
 }
 
 const root = document.getElementById("app");
+
+function normalizeApiBase(value) {
+  const raw = String(value || "").trim();
+  const { hostname, origin, port } = window.location;
+
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    const portNumber = Number.parseInt(port, 10);
+    const isViteDevPort = Number.isFinite(portNumber) && portNumber >= 5173 && portNumber <= 5199;
+
+    // If the app is served by Vite dev server, default to the backend port instead of same-origin.
+    if (isViteDevPort) {
+      if (!raw || raw === origin) {
+        return "http://localhost:3001";
+      }
+    }
+  }
+
+  return raw;
+}
+
 const state = {
   selectedFile: null,
   workflow: null,
@@ -880,20 +900,24 @@ const state = {
   mode: readStoredValue("cwa-mode", "dark"),
   accent: readStoredValue("cwa-accent", "cyan"),
   visualPreset: readStoredValue("cwa-visual-preset", "default"),
-  apiBase: readStoredValue("cwa-api-base", defaultApiBase()),
-  selectedAnnouncement: "1.3.1",
+  apiBase: normalizeApiBase(readStoredValue("cwa-api-base", defaultApiBase())),
+  selectedAnnouncement: "1.3.2",
   copiedErrorKey: "",
   copiedActionKey: "",
   copyPayloads: {}
 };
 
 let pollTimer = null;
+let lastWorkflowUpdatedAt = "";
 
 function defaultApiBase() {
   const { hostname, origin, port } = window.location;
 
   if (hostname === "localhost" || hostname === "127.0.0.1") {
-    if (port === "5173") {
+    const portNumber = Number.parseInt(port, 10);
+    const isViteDevPort = Number.isFinite(portNumber) && portNumber >= 5173 && portNumber <= 5199;
+
+    if (isViteDevPort) {
       return "http://localhost:3001";
     }
 
@@ -994,7 +1018,7 @@ function applyAppearance() {
 
 function stopPolling() {
   if (pollTimer) {
-    window.clearInterval(pollTimer);
+    window.clearTimeout(pollTimer);
     pollTimer = null;
   }
 }
@@ -1010,28 +1034,55 @@ function startPollingIfNeeded() {
     return;
   }
 
-  pollTimer = window.setInterval(async () => {
+  const workflowId = state.workflow.id;
+
+  const pollOnce = async () => {
     const t = getText();
 
     try {
-      const latest = await fetchWorkflow(state.workflow.id, t);
-      state.workflow = latest;
+      const latest = await fetchWorkflow(workflowId, t);
+      const latestUpdatedAt = latest?.updated_at || latest?.generated_at || "";
+      const hasChanged =
+        latestUpdatedAt && latestUpdatedAt !== lastWorkflowUpdatedAt
+          ? true
+          : JSON.stringify(latest) !== JSON.stringify(state.workflow);
 
-      if (latest.status === "completed") {
-        setMessage("success", state.language === "zh" ? "工作流已完成。" : t.statuses.success);
-      } else if (latest.status === "completed_with_errors") {
-        setMessage("error", latest.error || (state.language === "zh" ? "工作流已完成，但部分步骤失败或被跳过。" : t.statuses.completed_with_errors));
-      } else if (latest.status === "failed") {
-        setMessage("error", latest.error || t.networkFetchError);
+      if (hasChanged) {
+        lastWorkflowUpdatedAt = latestUpdatedAt || lastWorkflowUpdatedAt;
+        state.workflow = latest;
+
+        if (latest.status === "completed") {
+          setMessage("success", state.language === "zh" ? "工作流已完成。" : t.statuses.success);
+        } else if (latest.status === "completed_with_errors") {
+          setMessage(
+            "error",
+            latest.error ||
+              (state.language === "zh" ? "工作流已完成，但部分步骤失败或被跳过。" : t.statuses.completed_with_errors)
+          );
+        } else if (latest.status === "failed") {
+          setMessage("error", latest.error || t.networkFetchError);
+        }
+
+        renderApp();
       }
 
-      renderApp();
-      startPollingIfNeeded();
+      if (state.workflow?.id !== workflowId) {
+        return;
+      }
+
+      if (!["completed", "completed_with_errors", "failed"].includes(state.workflow.status)) {
+        pollTimer = window.setTimeout(pollOnce, POLL_INTERVAL_MS);
+      } else {
+        stopPolling();
+      }
     } catch (error) {
       setMessage("error", normalizeErrorMessage(error, t.networkFetchError));
       renderApp();
+      pollTimer = window.setTimeout(pollOnce, POLL_INTERVAL_MS);
     }
-  }, POLL_INTERVAL_MS);
+  };
+
+  pollTimer = window.setTimeout(pollOnce, POLL_INTERVAL_MS);
 }
 
 function getOutputCards(t) {
@@ -1482,6 +1533,7 @@ async function handleSubmit(event) {
   try {
     state.submitting = true;
     state.workflow = null;
+    lastWorkflowUpdatedAt = "";
     setMessage(
       "info",
       state.language === "zh"
