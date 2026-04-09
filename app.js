@@ -26,6 +26,9 @@ const COLOR_STYLES = [
   { id: "slate", label: { zh: "石墨", en: "Slate", ja: "スレート", ru: "Сланец" } }
 ];
 
+const SUPPORTED_LANGUAGES = ["zh", "ja", "en", "ru"];
+const SUPPORTED_MODES = ["light", "dark"];
+
 const STYLE_PRESETS = [
   {
     id: "default",
@@ -950,6 +953,36 @@ const state = {
 let pollTimer = null;
 let lastWorkflowUpdatedAt = "";
 
+function normalizeStateSelections() {
+  if (!SUPPORTED_LANGUAGES.includes(state.language)) {
+    state.language = "zh";
+  }
+
+  if (!SUPPORTED_MODES.includes(state.mode)) {
+    state.mode = "dark";
+  }
+
+  if (!COLOR_STYLES.some((item) => item.id === state.accent)) {
+    state.accent = "cyan";
+  }
+
+  if (!STYLE_PRESETS.some((item) => item.id === state.visualPreset)) {
+    state.visualPreset = "default";
+  }
+
+  if (!["preset", "custom"].includes(state.apiMode)) {
+    state.apiMode = defaultLocalApiBase() ? "preset" : "custom";
+  }
+
+  if (!API_PRESETS.some((item) => item.id === state.apiPreset)) {
+    state.apiPreset = API_PRESETS[0]?.id || "plato";
+  }
+
+  if (!ANNOUNCEMENTS.some((entry) => entry.version === state.selectedAnnouncement)) {
+    state.selectedAnnouncement = APP_VERSION;
+  }
+}
+
 function defaultApiBase() {
   const queryApiBase = readQueryApiBase("api");
 
@@ -1079,6 +1112,7 @@ async function fetchWorkflow(workflowId, t) {
 }
 
 function applyAppearance() {
+  normalizeStateSelections();
   const preset = STYLE_PRESETS.some((item) => item.id === state.visualPreset) ? state.visualPreset : "default";
 
   state.visualPreset = preset;
