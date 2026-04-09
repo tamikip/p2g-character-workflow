@@ -14,7 +14,7 @@ const STEP_ORDER = [
 const POLL_INTERVAL_MS = 1000;
 const PERSONAL_GITHUB_URL = "https://github.com/hzagaming";
 const PROJECT_GITHUB_URL = "https://github.com/hzagaming/p2g-character-workflow";
-const APP_VERSION = "1.3.3";
+const APP_VERSION = "1.3.4";
 const API_PRESETS = [
   {
     id: "plato",
@@ -59,6 +59,49 @@ const STYLE_PRESETS = [
 ];
 
 const ANNOUNCEMENTS = [
+  {
+    version: "1.3.4",
+    date: "2026-04-09",
+    type: "patch",
+    title: {
+      zh: "1.3.4 合并收尾与状态修复",
+      en: "1.3.4 Merge Cleanup and State Fixes",
+      ja: "1.3.4 マージ後の整理と状態修正",
+      ru: "1.3.4 Завершение merge и исправление состояния"
+    },
+    summary: {
+      zh: "整理合并后的版本状态，修复设置页状态兜底，并保留 1.3.3 作为历史公告。",
+      en: "Cleans up post-merge version state, hardens settings-state fallbacks, and keeps 1.3.3 in the announcement history.",
+      ja: "マージ後のバージョン状態を整理し、設定ページの状態フォールバックを強化、1.3.3 を履歴公告として保持します。",
+      ru: "Приводит в порядок состояние после merge, усиливает fallback-настройки страницы и сохраняет 1.3.3 в истории объявлений."
+    },
+    bullets: {
+      zh: [
+        "修复合并后版本号、默认公告与界面状态可能不同步的问题。",
+        "对 API 模式、API 预设与样式预设增加合法值兜底，避免旧本地缓存带来异常状态。",
+        "保留 1.3.3 为历史公告，并将 1.3.4 设为当前默认公告。",
+        "再次检查仓库内冲突标记与关键前端逻辑，清理合并收尾问题。"
+      ],
+      en: [
+        "Fixes post-merge mismatches between the version number, default announcement, and UI state.",
+        "Adds safe fallbacks for API mode, API preset, and visual preset values so stale local storage cannot leave the UI in an invalid state.",
+        "Keeps 1.3.3 in the release history while promoting 1.3.4 as the default current announcement.",
+        "Re-checks conflict markers and key frontend logic to finish the merge cleanup cleanly."
+      ],
+      ja: [
+        "マージ後に発生しうる、バージョン番号・既定公告・UI 状態の不一致を修正しました。",
+        "API モード、API プリセット、スタイルプリセットに妥当値のフォールバックを追加し、古いローカル保存値で UI が壊れないようにしました。",
+        "1.3.3 は履歴公告として残し、1.3.4 を現在の既定公告にしました。",
+        "リポジトリ内の競合マーカーと主要フロントエンド処理を再確認し、マージ後の整理を完了しました。"
+      ],
+      ru: [
+        "Исправлены возможные рассинхроны после merge между номером версии, объявлением по умолчанию и состоянием UI.",
+        "Добавлены безопасные fallback-значения для API mode, API preset и визуального пресета, чтобы устаревший local storage не ломал интерфейс.",
+        "Версия 1.3.3 сохранена в истории объявлений, а 1.3.4 назначена текущей основной записью.",
+        "Повторно проверены conflict markers и ключевая логика фронтенда, чтобы аккуратно завершить cleanup после merge."
+      ]
+    }
+  },
   {
     version: "1.3.3",
     date: "2026-04-09",
@@ -1028,6 +1071,24 @@ const state = {
 
 let pollTimer = null;
 
+function normalizeStateSelections() {
+  if (!STYLE_PRESETS.some((item) => item.id === state.visualPreset)) {
+    state.visualPreset = "default";
+  }
+
+  if (!["preset", "custom"].includes(state.apiMode)) {
+    state.apiMode = defaultLocalApiBase() ? "preset" : "custom";
+  }
+
+  if (!API_PRESETS.some((item) => item.id === state.apiPreset)) {
+    state.apiPreset = API_PRESETS[0]?.id || "plato";
+  }
+
+  if (!ANNOUNCEMENTS.some((entry) => entry.version === state.selectedAnnouncement)) {
+    state.selectedAnnouncement = APP_VERSION;
+  }
+}
+
 function defaultApiBase() {
   const queryApiBase = readQueryApiBase("api");
 
@@ -1154,6 +1215,7 @@ async function fetchWorkflow(workflowId, t) {
 }
 
 function applyAppearance() {
+  normalizeStateSelections();
   const preset = STYLE_PRESETS.some((item) => item.id === state.visualPreset) ? state.visualPreset : "default";
 
   state.visualPreset = preset;
