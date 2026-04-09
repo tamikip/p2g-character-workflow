@@ -17,6 +17,7 @@ The actual GitHub Pages friendly frontend source has been moved to the project r
 - Deploy the root static frontend or the root build output from `/dist`
 - In Settings -> Backend, set the API root URL for your hosted server
 - Asset URLs such as `/outputs/...` are resolved against that configured backend URL
+- GitHub Pages does not run the Node API, so `POST /api/workflows` must go to a separately deployed backend
 
 ## Build
 1. Run `npm run build` from the project root
