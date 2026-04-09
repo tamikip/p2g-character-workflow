@@ -14,7 +14,7 @@ const STEP_ORDER = [
 const POLL_INTERVAL_MS = 1000;
 const PERSONAL_GITHUB_URL = "https://github.com/hzagaming";
 const PROJECT_GITHUB_URL = "https://github.com/hzagaming/p2g-character-workflow";
-const APP_VERSION = "1.3.4";
+const APP_VERSION = "1.3.5";
 const API_PRESETS = [
   {
     id: "plato",
@@ -36,6 +36,9 @@ const COLOR_STYLES = [
   { id: "ocean", label: { zh: "深海", en: "Ocean", ja: "オーシャン", ru: "Океан" } },
   { id: "slate", label: { zh: "石墨", en: "Slate", ja: "スレート", ru: "Сланец" } }
 ];
+
+const SUPPORTED_LANGUAGES = ["zh", "ja", "en", "ru"];
+const SUPPORTED_MODES = ["light", "dark"];
 
 const STYLE_PRESETS = [
   {
@@ -59,6 +62,49 @@ const STYLE_PRESETS = [
 ];
 
 const ANNOUNCEMENTS = [
+  {
+    version: "1.3.5",
+    date: "2026-04-09",
+    type: "patch",
+    title: {
+      zh: "1.3.5 状态校验与设置稳定性修复",
+      en: "1.3.5 State Validation and Settings Stability Fix",
+      ja: "1.3.5 状態検証と設定安定性の修正",
+      ru: "1.3.5 Исправление проверки состояния и стабильности настроек"
+    },
+    summary: {
+      zh: "继续清理合并后的隐藏问题，补强本地缓存状态校验，并修复设置页模式切换时的潜在异常。",
+      en: "Continues the post-merge cleanup by hardening local-state validation and smoothing out edge cases in the settings mode switches.",
+      ja: "マージ後に残っていた隠れた問題をさらに整理し、ローカル状態の検証を強化、設定モード切替時の例外系を安定化しました。",
+      ru: "Продолжает cleanup после merge: усиливает проверку локального состояния и исправляет пограничные случаи при переключении режимов настроек."
+    },
+    bullets: {
+      zh: [
+        "对语言、明暗模式、配色、样式预设、API 模式和 API 预设统一增加合法值校验。",
+        "旧 localStorage 残值不再轻易把界面带入非法状态。",
+        "默认公告继续跟随当前版本，同时保留 1.3.4 与 1.3.3 在历史公告中。",
+        "重新检查关键前端状态流，修正 merge 后容易被忽略的脆弱点。"
+      ],
+      en: [
+        "Adds validation for language, light or dark mode, accent color, style preset, API mode, and API preset values.",
+        "Stale localStorage values can no longer easily push the UI into an invalid state.",
+        "The default announcement still tracks the current version while keeping 1.3.4 and 1.3.3 in the history.",
+        "Re-checks the critical frontend state flow and fixes fragile merge leftovers."
+      ],
+      ja: [
+        "言語、ライト/ダーク、アクセント色、スタイルプリセット、API モード、API プリセットに妥当値チェックを追加しました。",
+        "古い localStorage の残値で UI が不正状態に入りにくくなりました。",
+        "既定公告は現在バージョンに追従しつつ、1.3.4 と 1.3.3 は履歴に保持されます。",
+        "重要なフロントエンド状態遷移を再点検し、merge 後に見落としやすい脆い箇所を修正しました。"
+      ],
+      ru: [
+        "Добавлена проверка допустимых значений для языка, светлой/темной темы, accent color, style preset, API mode и API preset.",
+        "Устаревшие значения в localStorage больше не так легко переводят UI в невалидное состояние.",
+        "Объявление по умолчанию продолжает следовать текущей версии, при этом 1.3.4 и 1.3.3 остаются в истории.",
+        "Повторно проверен критический поток состояний фронтенда и исправлены хрупкие остатки после merge."
+      ]
+    }
+  },
   {
     version: "1.3.4",
     date: "2026-04-09",
@@ -1072,6 +1118,18 @@ const state = {
 let pollTimer = null;
 
 function normalizeStateSelections() {
+  if (!SUPPORTED_LANGUAGES.includes(state.language)) {
+    state.language = "zh";
+  }
+
+  if (!SUPPORTED_MODES.includes(state.mode)) {
+    state.mode = "dark";
+  }
+
+  if (!COLOR_STYLES.some((item) => item.id === state.accent)) {
+    state.accent = "cyan";
+  }
+
   if (!STYLE_PRESETS.some((item) => item.id === state.visualPreset)) {
     state.visualPreset = "default";
   }
