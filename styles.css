@@ -505,7 +505,6 @@ code {
   background: var(--panel-subtle);
   display: grid;
   gap: 10px;
-  animation: step-fade 280ms ease;
 }
 
 .step-main {
@@ -902,17 +901,6 @@ code {
 
 .about-links .link-button {
   text-decoration: none;
-}
-
-@keyframes step-fade {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 @media (max-width: 1080px) {

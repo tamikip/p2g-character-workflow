@@ -14,7 +14,18 @@ const STEP_ORDER = [
 const POLL_INTERVAL_MS = 1000;
 const PERSONAL_GITHUB_URL = "https://github.com/hzagaming";
 const PROJECT_GITHUB_URL = "https://github.com/hzagaming/p2g-character-workflow";
-const APP_VERSION = "1.3.2";
+const APP_VERSION = "1.3.3";
+const API_PRESETS = [
+  {
+    id: "plato",
+    label: {
+      zh: "使用 Plato 模型",
+      en: "Use Plato Model",
+      ja: "Plato モデルを使う",
+      ru: "Использовать модель Plato"
+    }
+  }
+];
 
 const COLOR_STYLES = [
   { id: "cyan", label: { zh: "海蓝", en: "Cyan", ja: "シアン", ru: "Циан" } },
@@ -48,6 +59,49 @@ const STYLE_PRESETS = [
 ];
 
 const ANNOUNCEMENTS = [
+  {
+    version: "1.3.3",
+    date: "2026-04-09",
+    type: "patch",
+    title: {
+      zh: "1.3.3 工作流动效与接口设置修复",
+      en: "1.3.3 Workflow Motion and API Settings Fix",
+      ja: "1.3.3 ワークフロー動作と API 設定の修正",
+      ru: "1.3.3 Исправление анимации workflow и настроек API"
+    },
+    summary: {
+      zh: "移除工作流轮询时反复触发的步骤动画，并补上 Plato 预设 / 自定义 API 的设置模式。",
+      en: "Removes the repeatedly replayed step animation during workflow polling and adds the Plato preset versus custom API settings mode.",
+      ja: "ワークフローのポーリング中に繰り返し再生されていたステップアニメーションを削除し、Plato プリセット / カスタム API の設定モードを追加しました。",
+      ru: "Убрана повторно проигрывающаяся анимация шагов при polling workflow и добавлены режимы настроек Plato preset / custom API."
+    },
+    bullets: {
+      zh: [
+        "工作流运行中不再因为轮询刷新而让步骤卡片重复闪动。",
+        "设置里的接口页新增“使用内置模型”和“自定义 API”两种模式。",
+        "内置 Plato 通道会优先走预设后端，本地开发默认启用，GitHub Pages 上未配置时会明确提示。",
+        "版本默认公告和应用版本号改为同源绑定，减少后续发版遗漏。"
+      ],
+      en: [
+        "Workflow step cards no longer flicker on every polling refresh while a run is in progress.",
+        "The backend settings tab now offers both a built-in model mode and a custom API mode.",
+        "The built-in Plato channel prefers a preset backend, defaults on for local development, and now shows a clearer warning on GitHub Pages when it is not configured.",
+        "The default announcement selection now tracks the app version to reduce future release mismatches."
+      ],
+      ja: [
+        "実行中のポーリング更新で、ステップカードが毎回ちらつく挙動を止めました。",
+        "設定のバックエンド欄に、内蔵モデルモードとカスタム API モードを追加しました。",
+        "内蔵 Plato 通道はプリセット済みバックエンドを優先し、ローカル開発では既定で有効、GitHub Pages では未設定時に明確な案内を表示します。",
+        "デフォルト公告の選択とアプリ版数を同じ基準にそろえ、今後のリリース差し違いを減らしました。"
+      ],
+      ru: [
+        "Карточки шагов workflow больше не мигают при каждом обновлении polling во время выполнения.",
+        "Во вкладке backend в настройках теперь есть два режима: встроенная модель и свой API.",
+        "Встроенный канал Plato теперь предпочитает preset backend, по умолчанию включается локально и понятнее сообщает о незаданной конфигурации на GitHub Pages.",
+        "Выбор объявления по умолчанию теперь привязан к версии приложения, чтобы уменьшить ошибки в будущих релизах."
+      ]
+    }
+  },
   {
     version: "1.3.2",
     date: "2026-04-08",
@@ -877,6 +931,15 @@ const BACKEND_UI_PATCH = {
     networkStartError: "无法启动工作流：静态页面没有拿到后端响应。请确认 API 地址配置正确，并且服务端可访问。",
     networkFetchError: "无法获取最新工作流状态：静态页面没有连到后端。请检查 API 地址、服务端状态或浏览器控制台。",
     backend: "接口",
+    apiModeTitle: "接口模式",
+    builtInApi: "使用内置模型",
+    customApi: "自定义 API",
+    platoPresetLabel: "Plato 预设通道",
+    platoPresetHint: "这个按钮会使用你预先接好的 Plato 后端通道，不会把私钥暴露到前端页面。",
+    customApiHint: "填写你自己的后端根地址。静态页面只会请求这个地址，不会直接保存或暴露你的私钥。",
+    presetUnavailable: "当前环境还没有配置 Plato 预设通道地址。请切换到自定义 API，或给预设接上已部署的后端地址。",
+    apiSourceLabel: "当前生效地址",
+    apiModeSaved: "接口模式已更新。",
     apiEndpoint: "API 地址",
     apiEndpointHint: "GitHub Pages 部署时，请填写你后端服务的根地址，例如 https://your-api.example.com。留空时会走当前站点同源地址。",
     apiEndpointSaved: "API 地址已更新。",
@@ -886,6 +949,15 @@ const BACKEND_UI_PATCH = {
     networkStartError: "Could not start the workflow because the static page did not receive a backend response. Check the configured API endpoint and make sure the server is reachable.",
     networkFetchError: "Could not fetch the latest workflow state because the static page could not reach the backend. Check the API endpoint, server status, or browser console.",
     backend: "Backend",
+    apiModeTitle: "API Mode",
+    builtInApi: "Built-in Model",
+    customApi: "Custom API",
+    platoPresetLabel: "Plato Preset Channel",
+    platoPresetHint: "This button uses your pre-wired Plato backend channel without exposing any secret key in the frontend.",
+    customApiHint: "Enter the root URL of your own backend here. The static page will call this backend and will not store or expose your secret key.",
+    presetUnavailable: "The Plato preset channel is not configured in this environment yet. Switch to Custom API or connect the preset to a deployed backend URL.",
+    apiSourceLabel: "Effective endpoint",
+    apiModeSaved: "API mode updated.",
     apiEndpoint: "API Endpoint",
     apiEndpointHint: "When deploying on GitHub Pages, enter the root URL of your backend service here, for example https://your-api.example.com. Leave it empty to use the current origin.",
     apiEndpointSaved: "API endpoint updated.",
@@ -895,6 +967,15 @@ const BACKEND_UI_PATCH = {
     networkStartError: "静的ページがバックエンド応答を受け取れず、ワークフローを開始できませんでした。API アドレス設定とサーバー到達性を確認してください。",
     networkFetchError: "静的ページがバックエンドに接続できず、最新のワークフロー状態を取得できませんでした。API アドレス、サーバー状態、ブラウザコンソールを確認してください。",
     backend: "バックエンド",
+    apiModeTitle: "API モード",
+    builtInApi: "内蔵モデル",
+    customApi: "カスタム API",
+    platoPresetLabel: "Plato プリセット",
+    platoPresetHint: "このボタンは事前接続済みの Plato バックエンドを使います。秘密鍵をフロントエンドへ露出しません。",
+    customApiHint: "自分のバックエンドのルート URL を入力してください。静的ページはその URL にだけ接続し、秘密鍵を保存・公開しません。",
+    presetUnavailable: "この環境では Plato プリセットの接続先 URL がまだ設定されていません。カスタム API に切り替えるか、プリセットへデプロイ済みバックエンド URL を接続してください。",
+    apiSourceLabel: "現在の接続先",
+    apiModeSaved: "API モードを更新しました。",
     apiEndpoint: "API アドレス",
     apiEndpointHint: "GitHub Pages に配置する場合は、ここにバックエンドのルート URL を入力してください。例: https://your-api.example.com。空欄のままなら現在のオリジンを使います。",
     apiEndpointSaved: "API アドレスを更新しました。",
@@ -904,6 +985,15 @@ const BACKEND_UI_PATCH = {
     networkStartError: "Не удалось запустить workflow: статическая страница не получила ответ от бэкенда. Проверьте настроенный API endpoint и доступность сервера.",
     networkFetchError: "Не удалось получить актуальное состояние workflow: статическая страница не смогла подключиться к бэкенду. Проверьте API endpoint, состояние сервера и консоль браузера.",
     backend: "Бэкенд",
+    apiModeTitle: "Режим API",
+    builtInApi: "Встроенная модель",
+    customApi: "Свой API",
+    platoPresetLabel: "Предустановленный Plato",
+    platoPresetHint: "Эта кнопка использует заранее подключенный Plato backend и не раскрывает секретный ключ во фронтенде.",
+    customApiHint: "Укажите корневой URL своего backend. Статическая страница будет обращаться только к нему и не будет хранить или показывать ваш секретный ключ.",
+    presetUnavailable: "В этой среде еще не настроен URL предустановленного канала Plato. Переключитесь на свой API или подключите к пресету адрес развернутого backend.",
+    apiSourceLabel: "Текущий endpoint",
+    apiModeSaved: "Режим API обновлен.",
     apiEndpoint: "API endpoint",
     apiEndpointHint: "При размещении на GitHub Pages укажите здесь корневой URL вашего бэкенда, например https://your-api.example.com. Оставьте пустым, чтобы использовать текущий origin.",
     apiEndpointSaved: "API endpoint обновлен.",
@@ -927,8 +1017,10 @@ const state = {
   mode: readStoredValue("cwa-mode", "dark"),
   accent: readStoredValue("cwa-accent", "cyan"),
   visualPreset: readStoredValue("cwa-visual-preset", "default"),
+  apiMode: readStoredValue("cwa-api-mode", defaultLocalApiBase() ? "preset" : "custom"),
+  apiPreset: readStoredValue("cwa-api-preset", "plato"),
   apiBase: readStoredValue("cwa-api-base", defaultApiBase()),
-  selectedAnnouncement: "1.3.2",
+  selectedAnnouncement: APP_VERSION,
   copiedErrorKey: "",
   copiedActionKey: "",
   copyPayloads: {}
@@ -937,13 +1029,27 @@ const state = {
 let pollTimer = null;
 
 function defaultApiBase() {
-  const { hostname, origin, port, search } = window.location;
-  const params = new URLSearchParams(search);
-  const queryApiBase = (params.get("api") || "").trim();
+  const queryApiBase = readQueryApiBase("api");
 
   if (queryApiBase) {
     return queryApiBase.replace(/\/+$/, "");
   }
+
+  const localBase = defaultLocalApiBase();
+  if (localBase) {
+    return localBase;
+  }
+
+  return "";
+}
+
+function readQueryApiBase(key) {
+  const params = new URLSearchParams(window.location.search);
+  return (params.get(key) || "").trim();
+}
+
+function defaultLocalApiBase() {
+  const { hostname, origin, port } = window.location;
 
   if (hostname === "localhost" || hostname === "127.0.0.1") {
     if (port === "5173") {
@@ -962,7 +1068,7 @@ function isHostedStaticEnvironment() {
 }
 
 function requiresHostedApiBase() {
-  return isHostedStaticEnvironment() && !(state.apiBase || "").trim();
+  return isHostedStaticEnvironment() && !getEffectiveApiBase();
 }
 
 function getText() {
@@ -991,7 +1097,7 @@ function buildApiUrl(pathname) {
     return pathname;
   }
 
-  const base = (state.apiBase || "").trim().replace(/\/+$/, "");
+  const base = getEffectiveApiBase().replace(/\/+$/, "");
   if (!base) {
     return pathname;
   }
@@ -1013,7 +1119,7 @@ function toAssetUrl(url) {
 
 async function startWorkflow(file, t) {
   if (requiresHostedApiBase()) {
-    throw new Error(t.hostedApiRequired);
+    throw new Error(getMissingApiBaseMessage(t));
   }
 
   const formData = new FormData();
@@ -1034,7 +1140,7 @@ async function startWorkflow(file, t) {
 
 async function fetchWorkflow(workflowId, t) {
   if (requiresHostedApiBase()) {
-    throw new Error(t.hostedApiRequired);
+    throw new Error(getMissingApiBaseMessage(t));
   }
 
   const response = await fetch(buildApiUrl(`/api/workflows/${workflowId}`));
@@ -1059,7 +1165,38 @@ function applyAppearance() {
   writeStoredValue("cwa-accent", state.accent);
   writeStoredValue("cwa-visual-preset", preset);
   writeStoredValue("cwa-language", state.language);
+  writeStoredValue("cwa-api-mode", state.apiMode);
+  writeStoredValue("cwa-api-preset", state.apiPreset);
   writeStoredValue("cwa-api-base", state.apiBase);
+}
+
+function getPresetApiBase(presetId) {
+  if (presetId === "plato") {
+    const queryPresetBase = readQueryApiBase("platoApi") || readQueryApiBase("api");
+    if (queryPresetBase) {
+      return queryPresetBase.replace(/\/+$/, "");
+    }
+
+    return defaultLocalApiBase().replace(/\/+$/, "");
+  }
+
+  return "";
+}
+
+function getEffectiveApiBase() {
+  if (state.apiMode === "preset") {
+    return getPresetApiBase(state.apiPreset);
+  }
+
+  return (state.apiBase || "").trim().replace(/\/+$/, "");
+}
+
+function getMissingApiBaseMessage(t) {
+  if (state.apiMode === "preset") {
+    return t.presetUnavailable;
+  }
+
+  return t.hostedApiRequired;
 }
 
 function stopPolling() {
@@ -1271,11 +1408,61 @@ function renderSettings(t, selectedAnnouncementData) {
               ? `
                 <div class="settings-section">
                   <div class="settings-block">
-                    <h3>${escapeHtml(t.apiEndpoint)}</h3>
-                    <input id="api-base-input" class="settings-input" type="text" value="${escapeHtml(state.apiBase)}" placeholder="https://your-api.example.com" />
-                    <p class="settings-help">${escapeHtml(t.apiEndpointHint)}</p>
-                    <p class="settings-help muted">${escapeHtml(state.apiBase ? state.apiBase : t.noApiConfigured)}</p>
-                    ${requiresHostedApiBase() ? `<p class="settings-help settings-warning">${escapeHtml(t.hostedApiRequired)}</p>` : ""}
+                    <h3>${escapeHtml(t.apiModeTitle)}</h3>
+                    <div class="choice-row">
+                      <button
+                        type="button"
+                        class="${state.apiMode === "preset" ? "choice active" : "choice"}"
+                        data-action="set-api-mode"
+                        data-api-mode="preset"
+                      >
+                        ${escapeHtml(t.builtInApi)}
+                      </button>
+                      <button
+                        type="button"
+                        class="${state.apiMode === "custom" ? "choice active" : "choice"}"
+                        data-action="set-api-mode"
+                        data-api-mode="custom"
+                      >
+                        ${escapeHtml(t.customApi)}
+                      </button>
+                    </div>
+                  </div>
+
+                  ${state.apiMode === "preset"
+                    ? `
+                      <div class="settings-block">
+                        <h3>${escapeHtml(t.platoPresetLabel)}</h3>
+                        <div class="choice-row">
+                          ${API_PRESETS.map(
+                            (preset) => `
+                              <button
+                                type="button"
+                                class="${preset.id === state.apiPreset ? "choice active" : "choice"}"
+                                data-action="set-api-preset"
+                                data-api-preset="${preset.id}"
+                              >
+                                ${escapeHtml(preset.label[state.language] || preset.label.zh)}
+                              </button>`
+                          ).join("")}
+                        </div>
+                        <p class="settings-help">${escapeHtml(t.platoPresetHint)}</p>
+                        <p class="settings-help muted">${escapeHtml(getEffectiveApiBase() || t.presetUnavailable)}</p>
+                        ${!getEffectiveApiBase() ? `<p class="settings-help settings-warning">${escapeHtml(t.presetUnavailable)}</p>` : ""}
+                      </div>`
+                    : `
+                      <div class="settings-block">
+                        <h3>${escapeHtml(t.apiEndpoint)}</h3>
+                        <input id="api-base-input" class="settings-input" type="text" value="${escapeHtml(state.apiBase)}" placeholder="https://your-api.example.com" />
+                        <p class="settings-help">${escapeHtml(t.customApiHint)}</p>
+                        <p class="settings-help">${escapeHtml(t.apiEndpointHint)}</p>
+                        <p class="settings-help muted">${escapeHtml(state.apiBase ? state.apiBase : t.noApiConfigured)}</p>
+                      </div>`}
+
+                  <div class="settings-block">
+                    <h3>${escapeHtml(t.apiSourceLabel)}</h3>
+                    <p class="settings-help muted">${escapeHtml(getEffectiveApiBase() || t.noApiConfigured)}</p>
+                    ${requiresHostedApiBase() ? `<p class="settings-help settings-warning">${escapeHtml(getMissingApiBaseMessage(t))}</p>` : ""}
                   </div>
                 </div>`
               : ""}
@@ -1553,7 +1740,7 @@ async function handleSubmit(event) {
   if (requiresHostedApiBase()) {
     state.settingsOpen = true;
     state.settingsTab = "backend";
-    setMessage("error", t.hostedApiRequired);
+    setMessage("error", getMissingApiBaseMessage(t));
     renderApp();
     return;
   }
@@ -1621,6 +1808,20 @@ root.addEventListener("click", async (event) => {
 
   if (action === "set-tab") {
     state.settingsTab = button.dataset.tab || "appearance";
+    renderApp();
+    return;
+  }
+
+  if (action === "set-api-mode") {
+    state.apiMode = button.dataset.apiMode || "custom";
+    setMessage("info", getText().apiModeSaved);
+    renderApp();
+    return;
+  }
+
+  if (action === "set-api-preset") {
+    state.apiPreset = button.dataset.apiPreset || "plato";
+    setMessage("info", getText().apiModeSaved);
     renderApp();
     return;
   }
